@@ -1,5 +1,6 @@
 package com.spidex.timepad
 
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -26,8 +28,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -53,11 +53,12 @@ import com.spidex.timepad.ui.theme.silver
 
 
 @Composable
-fun HomeScreen(viewModel: TaskViewModel,navigateToClock: () -> Unit){
+fun HomeScreen(viewModel: TaskViewModel, context : Context, navigateToClock: () -> Unit){
 
     val taskList by viewModel.todayTasks.collectAsState()
     val currentTask by viewModel.currentTask.collectAsState()
-    val context = LocalContext.current
+    val showDialog by viewModel.showDialog.collectAsState()
+    val deleteDialog by viewModel.showDeleteDialog.collectAsState()
 
     Column(
         modifier = Modifier
@@ -144,7 +145,6 @@ fun HomeScreen(viewModel: TaskViewModel,navigateToClock: () -> Unit){
                                 top.linkTo(parent.top, margin = 28.dp)
                                 end.linkTo(parent.end, margin = 24.dp)
                             }
-                            .noRippleClickable { }
                         ,
                     )
 
@@ -207,6 +207,36 @@ fun HomeScreen(viewModel: TaskViewModel,navigateToClock: () -> Unit){
             }
 
         }
+
+        if(showDialog){
+            InfoDialog(
+                viewModel = viewModel ,
+                selectedDay = null,
+                context = context,
+                onDismiss = {
+                    viewModel.setShowDialog(false)
+                    viewModel.doneEditing()
+                            },
+                onTaskSaved = {
+                    viewModel.insertTask(it)
+                    viewModel.setShowDialog(false)
+                    viewModel.doneEditing()
+                },
+                onTaskUpdate = {
+                    viewModel.updateTask(it)
+                    viewModel.setShowDialog(false)
+                    viewModel.doneEditing()
+
+                }
+            )
+        }
+
+        if(deleteDialog){
+            DeleteDialog(viewModel = viewModel) {
+                viewModel.setShowDeleteDialog(false)
+            }
+        }
+
     }
 }
 
@@ -217,17 +247,7 @@ fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(100.dp)
-            .combinedClickable(
-                onClick = {
-                    viewModel.setCurrentTask(task)
-                    viewModel.startOrResumeTimer()
-                    navigateToClock()
-                },
-                onLongClick = {
-
-                }
-            ),
+            .height(100.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(2.dp),
         shape = RoundedCornerShape(20)
@@ -236,10 +256,25 @@ fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(100.dp)
+                .combinedClickable(
+                    onClick = {
+                        viewModel.setCurrentTask(task)
+                        viewModel.startOrResumeTimer()
+                        navigateToClock()
+                    },
+                    onDoubleClick = {
+                        viewModel.setEditTask(task)
+                        viewModel.setShowDialog(true)
+                    },
+                    onLongClick = {
+                        viewModel.setDeleteTask(task)
+                        viewModel.setShowDeleteDialog(true)
+                    }
+                )
         ) {
             val (image, title, tag, time, play) = createRefs()
             Image(
-                painter = painterResource(id = task.icon ?: R.drawable.circle),
+                painter = painterResource(id = task.icon ?: R.drawable.ic_personal),
                 contentDescription = null,
                 modifier = Modifier
                     .width(70.dp)
@@ -311,7 +346,7 @@ fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
             Row(
                 modifier = Modifier
                     .wrapContentHeight()
-                    .width(120.dp)
+                    .wrapContentWidth()
                     .constrainAs(tag) {
                         start.linkTo(image.end, margin = 16.dp)
                         bottom.linkTo(parent.bottom, margin = 20.dp)
@@ -325,6 +360,7 @@ fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
                         .background(
                             color = when (task.tag) {
                                 "Work" -> lightRed
+                                "Coding" -> lightRed
                                 "Workout" -> lightOrange
                                 "Reading" -> lightGreen
                                 "Project" -> lightPurple
@@ -338,6 +374,7 @@ fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
                         text = task.tag ?: "Work",
                         color = when(task.tag){
                             "Work" -> red
+                            "Coding" -> red
                             "Workout" -> orange
                             "Reading" -> green
                             "Project" -> purple
@@ -361,7 +398,14 @@ fun HomeScreenPreview(){
     val taskViewModel = TaskViewModel(taskRepository = TaskRepository(AppDatabase.getDatabase(
         LocalContext.current).taskDao())
     )
-    HomeScreen(taskViewModel) {
-
+    val task = Task(
+        id = 0,
+        title = "Project",
+        durationMinutes = 1,
+        tag = "Workout",
+        icon = R.drawable.ic_workout,
+    )
+    TaskView(viewModel = taskViewModel, task = task) {
+        
     }
 }

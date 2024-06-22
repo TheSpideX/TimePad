@@ -32,7 +32,7 @@ data class Task(
     val icon: Int? = null,
 
     @ColumnInfo(name = "scheduled_date")
-    val scheduledDate: LocalDate = LocalDate.now(), // java.time.LocalDate
+    val scheduledDate: LocalDate = LocalDate.now(),
 
     @ColumnInfo(name = "created_at")
     val createdAt: LocalDate = LocalDate.now(),

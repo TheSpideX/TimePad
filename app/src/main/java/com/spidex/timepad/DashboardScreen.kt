@@ -1,5 +1,6 @@
 package com.spidex.timepad
 
+import android.content.Context
 import androidx.compose.animation.core.EaseInOutCubic
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -24,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,7 +48,7 @@ import ir.ehsannarmani.compose_charts.models.DrawStyle
 import ir.ehsannarmani.compose_charts.models.Line
 
 @Composable
-fun DashboardScreen(viewModel: TaskViewModel){
+fun DashboardScreen(viewModel: TaskViewModel,context: Context){
     val todayCompletedTask by viewModel.todayCompletedTasks.collectAsState()
     val weekCompletedTask by viewModel.last7DaysCompletedTasks.collectAsState()
     viewModel.calculateTodayCompletedTime()
@@ -210,18 +212,24 @@ fun DashboardScreen(viewModel: TaskViewModel){
                     ) {
 
 
-                        var totalSec = timeWeek
+                        var totalSec by remember {
+                            mutableStateOf(timeWeek)
+                        }
                         if(selected=="day")
                         {
                             totalSec = timeToday
                         }
                         totalSec /= 1000
-                        val totalMin = totalSec / 60
-                        val min = totalMin % 60
-                        val hour = totalMin / 60
+                        val totalMin by remember{ mutableStateOf(totalSec / 60) }
+                        val min by remember{ mutableLongStateOf(totalMin % 60) }
+                        val hour by remember{ mutableLongStateOf(totalMin / 60) }
 
                         Text(
-                            text = hour.toString(),
+                            text = if(selected == "day"){
+                                (timeToday/(1000 * 60L * 60)).toString()
+                            }else{
+                                (timeWeek/(1000 * 60L * 60)).toString()
+                            },
                             fontSize = 36.sp,
                             fontWeight = FontWeight.ExtraBold,
                             modifier = Modifier
@@ -235,7 +243,11 @@ fun DashboardScreen(viewModel: TaskViewModel){
                                 .padding(end = 8.dp)
                         )
                         Text(
-                            text = min.toString(),
+                            text = if(selected == "day"){
+                                (timeToday/(1000 * 60L)).toString()
+                            }else{
+                                (timeWeek/(1000 * 60L)).toString()
+                            },
                             fontSize = 36.sp,
                             fontWeight = FontWeight.ExtraBold,
                             modifier = Modifier
@@ -356,5 +368,6 @@ fun DashboardScreenPreview(){
     val taskViewModel = TaskViewModel(taskRepository = TaskRepository(AppDatabase.getDatabase(
         LocalContext.current).taskDao())
     )
-    DashboardScreen(taskViewModel)
+    val context = LocalContext.current
+    DashboardScreen(taskViewModel,context)
 }

@@ -1,5 +1,7 @@
 package com.spidex.timepad
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -11,10 +13,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,29 +25,22 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,7 +48,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -84,13 +78,12 @@ import java.time.temporal.WeekFields
 import java.util.Locale
 
 @Composable
-fun TaskScreen(viewModel: TaskViewModel,navigateToClock: () -> Unit) {
+fun TaskScreen(viewModel: TaskViewModel,context : Context,navigateToClock: () -> Unit) {
     val currentMonth = remember { viewModel.currentMonth.value }
     val endMonth = remember { currentMonth.plusMonths(100) }
     val firstDayOfWeek = remember { WeekFields.of(Locale.getDefault()).firstDayOfWeek }
-    var showDialog by remember {
-        mutableStateOf(false)
-    }
+    val showDialog by viewModel.showDialog.collectAsState()
+    val deleteDialog by viewModel.showDeleteDialog.collectAsState()
 
     val state = rememberCalendarState(
         startMonth = currentMonth,
@@ -116,7 +109,7 @@ fun TaskScreen(viewModel: TaskViewModel,navigateToClock: () -> Unit) {
 
             Card(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .wrapContentSize()
                     .padding(bottom = 16.dp),
                 elevation = CardDefaults.elevatedCardElevation(8.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White)
@@ -172,12 +165,12 @@ fun TaskScreen(viewModel: TaskViewModel,navigateToClock: () -> Unit) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            TaskListForDate(viewModel, selectedDay.value ?: LocalDate.now(), navigateToClock)
+            TaskListForDate(viewModel, selectedDay.value ?: LocalDate.now(), context,navigateToClock)
         }
 
         FloatingActionButton(
             onClick = {
-                      showDialog = true
+                      viewModel.setShowDialog(true)
             },
             modifier = Modifier
                 .wrapContentSize()
@@ -195,16 +188,31 @@ fun TaskScreen(viewModel: TaskViewModel,navigateToClock: () -> Unit) {
 
         if(showDialog){
             InfoDialog(
-                task = null,
-                selectedDay,
-                onDismiss = {showDialog = false},
+                viewModel = viewModel ,
+                selectedDay = selectedDay,
+                context = context,
+                onDismiss = {
+                    viewModel.setShowDialog(false)
+                    viewModel.doneEditing()
+                            },
                 onTaskSaved = {
                     viewModel.insertTask(it)
+                    viewModel.setShowDialog(false)
+                    viewModel.doneEditing()
                 },
                 onTaskUpdate = {
                     viewModel.updateTask(it)
+                    viewModel.setShowDialog(false)
+                    viewModel.doneEditing()
                 }
             )
+        }
+
+        if(deleteDialog){
+            DeleteDialog(viewModel = viewModel) {
+                viewModel.setShowDeleteDialog(false)
+                viewModel.getTasksForDate(selectedDay.value ?: LocalDate.now())
+            }
         }
     }
 }
@@ -236,8 +244,8 @@ fun MonthHeader(currentMonth: YearMonth) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp)
-            .padding(bottom = 8.dp),
+            .padding(start = 8.dp, end = 8.dp)
+            .padding(bottom = 16.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -256,19 +264,17 @@ fun Day(viewModel: TaskViewModel,def : Int,day: CalendarDay, isSelected: Boolean
 
     Box(
         modifier = Modifier
-            .aspectRatio(1f)
+            .size(42.dp)
             .padding(4.dp)
             .clip(RoundedCornerShape(20))
             .background(
                 color = if (isSelected) Color.Black
-                else if (color) orange
                 else Color.White
             )
             .clickable(
                 enabled = day.position == DayPosition.MonthDate,
                 onClick = onClick
-            )
-            .padding(8.dp),
+            ),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -281,18 +287,30 @@ fun Day(viewModel: TaskViewModel,def : Int,day: CalendarDay, isSelected: Boolean
                 }
             }
         )
+
+        if(color){
+            Badge(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(4.dp)
+                    .offset(x = (-4).dp, y = (4).dp)
+                    .clip(CircleShape),
+                containerColor = if(isSelected) Color.White else Color.Red
+            ) {
+            }
+        }
     }
 }
 
 @Composable
-fun TaskListForDate(viewModel: TaskViewModel, date: LocalDate,navigateToClock: () -> Unit) {
+fun TaskListForDate(viewModel: TaskViewModel, date: LocalDate,context: Context,navigateToClock: () -> Unit) {
     viewModel.getTasksForDate(date)
     val tasks by viewModel.tasksForDate.collectAsState()
     LazyColumn(
         modifier = Modifier.fillMaxSize()
     ) {
         items(tasks) {
-            TaskViewTaskScreen(viewModel,it,navigateToClock)
+            TaskViewTaskScreen(viewModel,it,context,navigateToClock)
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
@@ -300,20 +318,12 @@ fun TaskListForDate(viewModel: TaskViewModel, date: LocalDate,navigateToClock: (
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TaskViewTaskScreen(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
+fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Task, context : Context, navigateToClock: () -> Unit) {
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(90.dp)
-            .combinedClickable(
-                onClick = {
-                    viewModel.setCurrentTask(task)
-                    viewModel.startOrResumeTimer()
-                    navigateToClock()
-                },
-                onLongClick = {}
-            ),
+            .height(90.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(2.dp),
         shape = RoundedCornerShape(20)
@@ -322,10 +332,31 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel,task : Task,navigateToClock: () 
             modifier = Modifier
                 .fillMaxWidth()
                 .height(90.dp)
+                .combinedClickable(
+                    onClick = {
+                        if (task.status != TaskStatus.COMPLETED) {
+                            viewModel.setCurrentTask(task)
+                            viewModel.startOrResumeTimer()
+                            navigateToClock()
+                        } else {
+                            Toast
+                                .makeText(context, "Task is Already Completed", Toast.LENGTH_SHORT)
+                                .show()
+                        }
+                    },
+                    onDoubleClick = {
+                        viewModel.setEditTask(task)
+                        viewModel.setShowDialog(true)
+                    },
+                    onLongClick = {
+                        viewModel.setDeleteTask(task)
+                        viewModel.setShowDeleteDialog(true)
+                    },
+                )
         ) {
             val (image, title, tag, time, play) = createRefs()
             Image(
-                painter = painterResource(id = task.icon ?: R.drawable.circle),
+                painter = painterResource(id = task.icon ?: R.drawable.ic_personal),
                 contentDescription = null,
                 modifier = Modifier
                     .width(70.dp)
@@ -390,7 +421,7 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel,task : Task,navigateToClock: () 
                     .width(120.dp)
                     .constrainAs(tag) {
                         start.linkTo(image.end, margin = 16.dp)
-                        bottom.linkTo(parent.bottom, margin = 20.dp)
+                        bottom.linkTo(parent.bottom, margin = 16.dp)
                     }
                     .background(shape = RoundedCornerShape(20), color = Color.White),
             ) {
@@ -401,6 +432,7 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel,task : Task,navigateToClock: () 
                         .background(
                             color = when (task.tag) {
                                 "Work" -> lightRed
+                                "Coding" -> lightRed
                                 "Workout" -> lightOrange
                                 "Reading" -> lightGreen
                                 "Project" -> lightPurple
@@ -414,6 +446,7 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel,task : Task,navigateToClock: () 
                         text = task.tag ?: "Work",
                         color = when(task.tag){
                             "Work" -> red
+                            "Coding" -> red
                             "Workout" -> orange
                             "Reading" -> green
                             "Project" -> purple
@@ -422,7 +455,7 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel,task : Task,navigateToClock: () 
                         letterSpacing = 2.sp,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 8.dp,end = 8.dp,top = 4.dp,bottom = 4.dp)
+                        modifier = Modifier.padding(start = 8.dp,end = 8.dp,top = 2.dp,bottom = 2.dp)
                     )
                 }
             }
@@ -430,123 +463,24 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel,task : Task,navigateToClock: () 
     }
 }
 
-@Composable
-fun AddEditTaskScreen(
-    selectedDay: MutableState<LocalDate?>,
-    task: Task? = null, // Optional: Pass an existing task if you're editing
-    onTaskSaved: (Task) -> Unit
-) {
-
-    var title by remember(task) { mutableStateOf(task?.title ?: "") }
-    var description by remember(task) { mutableStateOf(task?.description ?: "") }
-    var durationMinutes by remember(task) { mutableStateOf(task?.durationMinutes?.toString() ?: "") }
-    var tag by remember(task) { mutableStateOf(task?.tag ?: "") }
-    var selectedRepeatInterval by remember(task) { mutableStateOf(task?.repeatInterval ?: RepeatInterval.NONE) } // Default to NONE if not recurring
-
-    Column(
-        modifier = Modifier
-            .wrapContentSize()
-            .background(color = Color.White)
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        OutlinedTextField(
-            value = title,
-            onValueChange = { title = it },
-            label = { Text("Title") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = description,
-            onValueChange = { description = it },
-            label = { Text("Description (Optional)") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = false // Allow multiple lines for description
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = durationMinutes,
-            onValueChange = { if (it.all { char -> char.isDigit() }) durationMinutes = it }, // Allow only digits
-            label = { Text("Duration (minutes)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = tag,
-            onValueChange = { tag = it },
-            label = { Text("Tag (optional)") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text("Repeat Interval:")
-
-        // Dropdown for RepeatInterval selection
-        var expanded by remember { mutableStateOf(false) }
-        Box(modifier = Modifier.fillMaxWidth()) {
-            OutlinedTextField(
-                value = selectedRepeatInterval.toString(), // Convert enum to string for display
-                onValueChange = {},
-                label = { Text("Repeat") },
-                readOnly = true,
-                trailingIcon = {
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null,
-                        Modifier.clickable { expanded = true })
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                RepeatInterval.values().forEach { interval ->
-                    DropdownMenuItem(onClick = {
-                        selectedRepeatInterval = interval
-                        expanded = false
-                    }, text = { Text(interval.toString()) })
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(onClick = {
-            val duration = durationMinutes.toLongOrNull() ?: 0
-            val task = Task(
-                title = title,
-                description = description,
-                durationMinutes = duration,
-                tag = tag, repeatInterval =
-                selectedRepeatInterval,
-                createdAt = selectedDay.value ?: LocalDate.now(),
-                scheduledDate = selectedDay.value ?: LocalDate.now()
-            )
-            onTaskSaved(task)
-
-        }) {
-            Text("Save Task")
-        }
-    }
-}
 
 @Preview(showBackground = true)
 @Composable
 fun TaskScreenPreview() {
-    val task = Task(
-        id = 0,
-        title = "Project",
-        durationMinutes = 1,
-        tag = "Coding",
-        icon = R.drawable.ic_code,
-    )
+    val context = LocalContext.current
+//    val task = Task(
+//        id = 0,
+//        title = "Project",
+//        durationMinutes = 1,
+//        tag = "Coding",
+//        icon = R.drawable.ic_code,
+//    )
     val taskViewModel = TaskViewModel(taskRepository = TaskRepository(AppDatabase.getDatabase(LocalContext.current).taskDao()))
-    TaskScreen(taskViewModel){
+    TaskScreen(taskViewModel,context){
 
     }
+
+//    TaskView(viewModel = taskViewModel, task =task ) {
+//
+//    }
 }

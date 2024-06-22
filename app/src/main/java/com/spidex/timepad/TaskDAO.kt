@@ -20,6 +20,9 @@ interface TaskDao {
     @Delete
     suspend fun deleteTask(task: Task)
 
+    @Query("DELETE FROM tasks WHERE id = :taskId")
+    suspend fun deleteTaskById(taskId: Int)
+
     @Query("SELECT * FROM tasks")
     fun getAllTasks(): Flow<List<Task>>
 
@@ -29,18 +32,11 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE tag = :tag")
     fun getTasksByTag(tag: String): Flow<List<Task>>
 
-    @Query("SELECT * FROM tasks WHERE id = :id")
-    fun getTaskById(id: Int): Flow<Task>
-
     @Query("SELECT * FROM tasks WHERE scheduled_date = :scheduledDate")
     fun getTasksByDate(scheduledDate: LocalDate): Flow<List<Task>>
 
-    // Optimized recurring task queries:
     @Query("SELECT * FROM tasks WHERE repeat_interval IS NOT NULL")
     fun getRecurringTasks(): Flow<List<Task>>
-
-    @Query("SELECT * FROM tasks WHERE repeat_interval = :repeatInterval")
-    fun getRecurringTasksByInterval(repeatInterval: RepeatInterval): Flow<List<Task>>
 
     // Updated query for tasks on a specific date, including recurring ones
     @Query("""
@@ -77,10 +73,11 @@ interface TaskDao {
     """)
     fun getTasksCompletedBetweenDates(startDate: LocalDate, endDate: LocalDate): Flow<List<Task>>
 
+
     @Query("""
         SELECT * FROM tasks
         WHERE 
-            (scheduled_date = :date AND repeat_interval IS NULL AND status != 'COMPLETED') -- One-time tasks
+            (scheduled_date = :date AND repeat_interval IS NULL AND status != 'COMPLETED') 
             OR ( 
                 repeat_interval IS NOT NULL 
                 AND status != 'COMPLETED'

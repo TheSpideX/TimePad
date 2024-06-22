@@ -12,14 +12,6 @@ import com.spidex.timepad.ui.theme.TimePadTheme
 import com.spidex.timepad.ui.theme.background
 
 class MainActivity : ComponentActivity() {
-    val task = Task(
-        id = 0,
-        title = "Project",
-        durationMinutes = 1,
-        tag = "Workout",
-        icon = R.drawable.ic_workout,
-    )
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -30,7 +22,10 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = background
                 ) {
-                    AppNavigation()
+                    val viewModel = TaskViewModel(taskRepository = TaskRepository(AppDatabase.getDatabase(
+                        LocalContext.current).taskDao())
+                    )
+                    AppNavigation(viewModel)
                 }
             }
         }

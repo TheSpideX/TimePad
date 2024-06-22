@@ -25,7 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "task_database"
-                ).build() // No migration needed since version is 1
+                ).build()
                 INSTANCE = instance
                 instance
             }
@@ -33,7 +33,6 @@ abstract class AppDatabase : RoomDatabase() {
     }
 }
 
-// TypeConverters for LocalDate and RepeatInterval
 class Converters {
     @TypeConverter
     fun fromTimestamp(value: Long?): LocalDate? {

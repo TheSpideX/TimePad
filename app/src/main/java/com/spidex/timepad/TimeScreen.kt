@@ -1,5 +1,6 @@
 package com.spidex.timepad
 
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -50,7 +51,7 @@ import com.spidex.timepad.ui.theme.silver
 import java.time.LocalDate
 
 @Composable
-fun TimeScreen(navController: NavController,viewModel: TaskViewModel,onFinishClick : (Task) -> Unit){
+fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Context,onFinishClick : () -> Unit){
     val currentTask by viewModel.currentTask.collectAsState()
     currentTask?.let {
         BackHandler(onBack = {
@@ -95,8 +96,9 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,onFinishCli
                         .wrapContentSize()
                         .padding(end = 8.dp)
                         .background(
-                            color = when (currentTask?.tag ?: "Work") {
+                            color = when(currentTask?.tag ?: "Personal"){
                                 "Work" -> lightRed
+                                "Coding" -> lightRed
                                 "Workout" -> lightOrange
                                 "Reading" -> lightGreen
                                 "Project" -> lightPurple
@@ -108,8 +110,9 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,onFinishCli
                 {
                     Text(
                         text = currentTask?.tag ?: "Work",
-                        color = when (currentTask?.tag ?: "Work") {
+                        color = when(viewModel.currentTask.value?.tag ?: "Personal"){
                             "Work" -> red
+                            "Coding" -> red
                             "Workout" -> orange
                             "Reading" -> green
                             "Project" -> purple
@@ -192,7 +195,10 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,onFinishCli
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFe9e9fd)),
                     onClick = {
                         viewModel.pauseTimer()
-                        viewModel.getTodayTask()
+                        currentTask?.let{task->
+                            viewModel.markTaskCompleted(task)
+                        }
+                        onFinishClick()
                         navController.popBackStack()
                     }
                 ) {
@@ -248,8 +254,9 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,onFinishCli
 fun DefaultPreview() {
     val taskViewModel = TaskViewModel(taskRepository = TaskRepository(AppDatabase.getDatabase(
         LocalContext.current).taskDao()))
+    val context = LocalContext.current
     val navController = rememberNavController()
-    TimeScreen(navController,taskViewModel){
+    TimeScreen(navController,taskViewModel,context){
 
     }
 }
