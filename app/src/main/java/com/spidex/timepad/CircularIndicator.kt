@@ -148,7 +148,7 @@ fun CircularProgressIndicator(
         }
 
         val remTime by viewModel.currentTask.collectAsState()
-        val totalSecond = remTime?.remainingTimeMillis?.div(1000)
+        val totalSecond = remTime?.remainingTimeMillis?.div(1000) ?: 0
         var sec = totalSecond?.mod(60).toString()
         if(sec.length == 1)
         {

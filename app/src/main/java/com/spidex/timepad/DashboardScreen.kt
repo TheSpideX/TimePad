@@ -56,8 +56,9 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
     val timeToday by viewModel.todayCompletedTime.collectAsState()
     val timeWeek by viewModel.last7DaysCompletedTime.collectAsState()
     val historyTime by viewModel.timeSpentLast7Days.collectAsState()
+    val totalTimeSpent by viewModel.totalTimeSpent.collectAsState()
 
-    var selected by remember { mutableStateOf("day") }
+    val selected by viewModel.selectedPeriod.collectAsState()
 
     Column(
         modifier = Modifier
@@ -212,24 +213,13 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
                     ) {
 
 
-                        var totalSec by remember {
-                            mutableStateOf(timeWeek)
-                        }
-                        if(selected=="day")
-                        {
-                            totalSec = timeToday
-                        }
-                        totalSec /= 1000
-                        val totalMin by remember{ mutableStateOf(totalSec / 60) }
-                        val min by remember{ mutableLongStateOf(totalMin % 60) }
-                        val hour by remember{ mutableLongStateOf(totalMin / 60) }
+                        val totalSec = totalTimeSpent / 1000
+                        val totalMin = totalSec / 60
+                        val hour = totalMin / 60
+                        val min = totalMin % 60
 
                         Text(
-                            text = if(selected == "day"){
-                                (timeToday/(1000 * 60L * 60)).toString()
-                            }else{
-                                (timeWeek/(1000 * 60L * 60)).toString()
-                            },
+                            text = hour.toString(),
                             fontSize = 36.sp,
                             fontWeight = FontWeight.ExtraBold,
                             modifier = Modifier
@@ -243,11 +233,7 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
                                 .padding(end = 8.dp)
                         )
                         Text(
-                            text = if(selected == "day"){
-                                (timeToday/(1000 * 60L)).toString()
-                            }else{
-                                (timeWeek/(1000 * 60L)).toString()
-                            },
+                            text = min.toString(),
                             fontSize = 36.sp,
                             fontWeight = FontWeight.ExtraBold,
                             modifier = Modifier
@@ -272,10 +258,10 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
                 .padding(start = 32.dp, end = 24.dp, top = 48.dp, bottom = 48.dp)
                 .background(color = Color(0xFFe9e9fd), RoundedCornerShape(20))
                 .noRippleClickable {
-                    selected = when (selected) {
+                    viewModel.setSelectedPeriod(when (selected) {
                         "day" -> "week"
                         else -> "day"
-                    }
+                    })
                 },
         ){
             Card(

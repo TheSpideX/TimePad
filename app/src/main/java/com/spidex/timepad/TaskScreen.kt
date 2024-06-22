@@ -345,8 +345,16 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Task, context : Context,
                         }
                     },
                     onDoubleClick = {
-                        viewModel.setEditTask(task)
-                        viewModel.setShowDialog(true)
+                        if(task.status != TaskStatus.COMPLETED) {
+                            viewModel.setEditTask(task)
+                            viewModel.setShowDialog(true)
+                        }
+                        else
+                        {
+                            Toast
+                                .makeText(context, "Task is Already Completed", Toast.LENGTH_SHORT)
+                                .show()
+                        }
                     },
                     onLongClick = {
                         viewModel.setDeleteTask(task)

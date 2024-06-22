@@ -1,6 +1,8 @@
 package com.spidex.timepad
 
+import android.app.Activity
 import android.content.Context
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,6 +25,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -51,9 +55,10 @@ import com.spidex.timepad.ui.theme.silver
 import java.time.LocalDate
 
 @Composable
-fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Context,onFinishClick : () -> Unit){
+fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Context, onFinishClick : (Task) -> Unit){
     val currentTask by viewModel.currentTask.collectAsState()
     currentTask?.let {
+        val timerRunning by viewModel.timerRunning.collectAsState()
         BackHandler(onBack = {
             viewModel.pauseTimer()
             navController.popBackStack()
@@ -96,7 +101,7 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                         .wrapContentSize()
                         .padding(end = 8.dp)
                         .background(
-                            color = when(currentTask?.tag ?: "Personal"){
+                            color = when (currentTask?.tag ?: "Personal") {
                                 "Work" -> lightRed
                                 "Coding" -> lightRed
                                 "Workout" -> lightOrange
@@ -110,7 +115,7 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                 {
                     Text(
                         text = currentTask?.tag ?: "Work",
-                        color = when(viewModel.currentTask.value?.tag ?: "Personal"){
+                        color = when (viewModel.currentTask.value?.tag ?: "Personal") {
                             "Work" -> red
                             "Coding" -> red
                             "Workout" -> orange
@@ -195,11 +200,11 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFe9e9fd)),
                     onClick = {
                         viewModel.pauseTimer()
-                        currentTask?.let{task->
+                        currentTask?.let { task ->
                             viewModel.markTaskCompleted(task)
                         }
-                        onFinishClick()
                         navController.popBackStack()
+                        onFinishClick(currentTask!!)
                     }
                 ) {
                     Column(
@@ -208,6 +213,7 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                             .clickable {
                                 viewModel.pauseTimer()
                                 navController.popBackStack()
+                                onFinishClick(currentTask!!)
                             },
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -239,12 +245,13 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                     fontWeight = FontWeight.Bold
                 )
             }
-
-
         }
-    }?: run {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Loading task...")
+    } ?: run {
+        Box(
+            modifier = Modifier.fillMaxSize()
+                .background(color = Color.White)
+        ){
+
         }
     }
 }
@@ -256,7 +263,5 @@ fun DefaultPreview() {
         LocalContext.current).taskDao()))
     val context = LocalContext.current
     val navController = rememberNavController()
-    TimeScreen(navController,taskViewModel,context){
-
-    }
+    TimeScreen(navController,taskViewModel,context){}
 }

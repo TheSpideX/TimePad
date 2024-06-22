@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -19,6 +20,9 @@ import java.time.YearMonth
 class TaskViewModel(private val taskRepository: TaskRepository) : ViewModel() {
     private val _showDialog = MutableStateFlow(false)
     val showDialog : StateFlow<Boolean> = _showDialog
+
+    private val _selectedPeriod = MutableStateFlow("day")
+    val selectedPeriod: StateFlow<String> = _selectedPeriod.asStateFlow()
 
     private val _showDeleteDialog = MutableStateFlow(false)
     val showDeleteDialog : StateFlow<Boolean> = _showDeleteDialog
@@ -96,14 +100,27 @@ class TaskViewModel(private val taskRepository: TaskRepository) : ViewModel() {
 
 
 
-    private val _currentTaskTotalTime = MutableStateFlow<Long>(0)
-    val currentTaskTotalTime: StateFlow<List<Long>> = _currentTask.map { task ->
-        if (task != null) {
-            listOf(task.durationMinutes * 60 * 1000L - task.remainingTimeMillis)
-        } else {
+    val totalTimeSpent: StateFlow<Long> = combine(
+        selectedDate,
+        allTasks,
+        selectedPeriod
+    ) { selectedDate, allTasks, selected ->
+        val now = LocalDate.now() // Get current date for comparison
+
+        val tasksForPeriod = if (selectedDate == null) {
             emptyList()
+        } else if (selected == "day") {
+            allTasks.filter { it.scheduledDate == selectedDate }
+        } else { // selected == "week"
+            allTasks.filter {
+                it.scheduledDate != null &&
+                        it.scheduledDate.isAfter(now.minusDays(6)) &&
+                        it.scheduledDate.isBefore(now.plusDays(1))
+            }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+        tasksForPeriod.sumOf { it.durationMinutes * 60 * 1000L - it.remainingTimeMillis }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
 
     init {
@@ -112,13 +129,9 @@ class TaskViewModel(private val taskRepository: TaskRepository) : ViewModel() {
                 if (date != null) {
                     taskRepository.getTasksForDate(date).collect { tasks ->
                         _tasksForDate.value = tasks
-                        if (tasks.isNotEmpty()) {
-                            _currentTask.value = tasks[0]
-                            _remTime.value = _currentTask.value!!.remainingTimeMillis
-                        } else {
+
                             _currentTask.value = null
                             _remTime.value = 0
-                        }
                     }
                 } else {
                     _tasksForDate.value = emptyList()
@@ -168,7 +181,8 @@ class TaskViewModel(private val taskRepository: TaskRepository) : ViewModel() {
 
     //Timer Work
     fun startOrResumeTimer() {
-        if (timerJob?.isActive == true) return // Avoid starting if already running
+        if (timerJob?.isActive == true) return
+
         timerJob = viewModelScope.launch {
             _timerRunning.value = true
             while (_timerRunning.value && currentTask.value != null && currentTask.value!!.remainingTimeMillis > 0) {
@@ -187,6 +201,7 @@ class TaskViewModel(private val taskRepository: TaskRepository) : ViewModel() {
         }
         getTodayTask()
     }
+
     fun pauseTimer() {
         timerJob?.cancel()
         timerJob = null
@@ -199,9 +214,8 @@ class TaskViewModel(private val taskRepository: TaskRepository) : ViewModel() {
     fun markTaskCompleted(task: Task) {
         viewModelScope.launch {
             val updatedTask = task.copy(status = TaskStatus.COMPLETED, remainingTimeMillis = 0L, completedOn = LocalDate.now())
-                taskRepository.update(updatedTask)
+            taskRepository.update(updatedTask)
 
-            _currentTask.value = null
             selectedDate.value?.let { getTasksForDate(it) }
         }
     }
@@ -211,7 +225,6 @@ class TaskViewModel(private val taskRepository: TaskRepository) : ViewModel() {
             val updatedTask = _currentTask.value!!.copy(status = TaskStatus.COMPLETED, remainingTimeMillis = 0L, completedOn = LocalDate.now())
             taskRepository.update(updatedTask)
 
-            _currentTask.value = null
             selectedDate.value?.let { getTasksForDate(it) }
         }
     }
@@ -314,5 +327,9 @@ class TaskViewModel(private val taskRepository: TaskRepository) : ViewModel() {
     fun shiftTaskToNextInterval(task: Task) = viewModelScope.launch {
         taskRepository.shiftToNextInterval(task)
         selectedDate.value?.let { getTasksForDate(it) }
+    }
+
+    fun setSelectedPeriod(period: String) {
+        _selectedPeriod.value = period
     }
 }

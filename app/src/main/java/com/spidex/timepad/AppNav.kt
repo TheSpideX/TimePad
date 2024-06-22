@@ -35,6 +35,7 @@ import androidx.navigation.compose.rememberNavController
 import com.exyte.animatednavbar.utils.noRippleClickable
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.spidex.timepad.ui.theme.background
+import java.time.LocalDate
 
 @Composable
 fun AppNavigation(viewModel: TaskViewModel){
@@ -146,9 +147,13 @@ fun AppNavigation(viewModel: TaskViewModel){
                 DashboardScreen(viewModel,context)
             }
             composable(NavigationRoute.Clock.route){
-                TimeScreen(navController,viewModel,context){
-                    Log.e("Finish","onFinishCalled")
-                    viewModel.completedByFinish()
+                TimeScreen(navController,viewModel,context){task->
+                    val newTask = task.copy(
+                        status = TaskStatus.COMPLETED,
+                        completedOn = LocalDate.now()
+                    )
+                    viewModel.updateTask(newTask)
+                    viewModel.setCurrentTask(null)
                 }
             }
         }
