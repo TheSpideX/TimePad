@@ -64,12 +64,5 @@ sealed class NavigationRoute(val route: String) {
     data object Task : NavigationRoute("task")
     data object Dashboard : NavigationRoute("dashboard")
     data object Clock : NavigationRoute("clock")
+    data object Splash : NavigationRoute("splash")
 }
-
-data class NavigationItem(
-    val id : Int,
-    val name: String,
-    val route: String,
-    val icon: Int,
-    val selectedIcon: Int
-)

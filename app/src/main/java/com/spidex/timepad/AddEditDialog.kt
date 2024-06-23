@@ -287,10 +287,10 @@ fun InfoDialog(
                                     },
                                     description = description,
                                     durationMinutes = durationMinutes.toLong(),
-                                    remainingTimeMillis = 5 * 1000L,//if(durationMinutes.toLong() == oldDuration)
-//                                        oldRemTime
-//                                    else
-//                                        durationMinutes.toLong() * 60 * 1000L,
+                                    remainingTimeMillis =if(durationMinutes.toLong() == oldDuration)
+                                        oldRemTime
+                                    else
+                                        durationMinutes.toLong() * 60 * 1000L,
                                     tag = selectedTag,
                                     repeatInterval = when (selectedRepeat) {
                                         "None" -> RepeatInterval.NONE
@@ -317,7 +317,6 @@ fun InfoDialog(
                                     },
                                     description = description.ifEmpty { "Description" },
                                     durationMinutes = durationMinutes.toLong(),
-                                    remainingTimeMillis = 5*1000L,
                                     tag = selectedTag,
                                     repeatInterval = when (selectedRepeat) {
                                         "None" -> RepeatInterval.NONE

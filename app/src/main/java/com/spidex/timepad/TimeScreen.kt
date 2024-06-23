@@ -25,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -52,16 +51,21 @@ import com.spidex.timepad.ui.theme.orange
 import com.spidex.timepad.ui.theme.purple
 import com.spidex.timepad.ui.theme.red
 import com.spidex.timepad.ui.theme.silver
-import java.time.LocalDate
 
 @Composable
 fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Context, onFinishClick : (Task) -> Unit){
     val currentTask by viewModel.currentTask.collectAsState()
     currentTask?.let {
         val timerRunning by viewModel.timerRunning.collectAsState()
+        LaunchedEffect(timerRunning) {
+            val activity = context as? Activity
+            if (timerRunning) {
+                activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
         BackHandler(onBack = {
             viewModel.pauseTimer()
-            navController.popBackStack()
+            navController.navigateUp()
         })
         Column(
             modifier = Modifier
@@ -203,7 +207,7 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                         currentTask?.let { task ->
                             viewModel.markTaskCompleted(task)
                         }
-                        navController.popBackStack()
+                        navController.navigateUp()
                         onFinishClick(currentTask!!)
                     }
                 ) {
@@ -212,7 +216,7 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                             .fillMaxWidth()
                             .clickable {
                                 viewModel.pauseTimer()
-                                navController.popBackStack()
+                                navController.navigateUp()
                                 onFinishClick(currentTask!!)
                             },
                         verticalArrangement = Arrangement.Center,
@@ -234,7 +238,7 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                         .clickable {
                             viewModel.pauseTimer()
                             viewModel.getTodayTask()
-                            navController.popBackStack()
+                            navController.navigateUp()
                         }
                         .constrainAs(quit) {
                             bottom.linkTo(parent.bottom, margin = 32.dp)
@@ -248,7 +252,8 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
         }
     } ?: run {
         Box(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
                 .background(color = Color.White)
         ){
 

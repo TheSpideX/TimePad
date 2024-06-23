@@ -2,7 +2,6 @@
 
 package com.spidex.timepad
 
-import android.util.Log
 import android.view.View
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -93,7 +92,7 @@ fun AppNavigation(viewModel: TaskViewModel){
                                 .width(32.dp)
                                 .height(32.dp)
                                 .noRippleClickable {
-                                    navController.navigate(NavigationRoute.Home.route){
+                                    navController.navigate(NavigationRoute.Home.route) {
                                         navController.popBackStack()
                                     }
                                 }
@@ -105,7 +104,7 @@ fun AppNavigation(viewModel: TaskViewModel){
                                 .width(32.dp)
                                 .height(32.dp)
                                 .noRippleClickable {
-                                    navController.navigate(NavigationRoute.Task.route){
+                                    navController.navigate(NavigationRoute.Task.route) {
                                         navController.popBackStack()
                                     }
                                 }
@@ -117,7 +116,7 @@ fun AppNavigation(viewModel: TaskViewModel){
                                 .width(32.dp)
                                 .height(32.dp)
                                 .noRippleClickable {
-                                    navController.navigate(NavigationRoute.Dashboard.route){
+                                    navController.navigate(NavigationRoute.Dashboard.route) {
                                         navController.popBackStack()
                                     }
                                 }
@@ -130,9 +129,16 @@ fun AppNavigation(viewModel: TaskViewModel){
     ){
         NavHost(
             navController = navController,
-            startDestination = NavigationRoute.Home.route,
+            startDestination = NavigationRoute.Splash.route,
             modifier = Modifier.padding(it)
         ){
+
+            composable(NavigationRoute.Splash.route){
+                SplashScreen {
+                    navController.navigate(NavigationRoute.Home.route)
+                }
+            }
+
             composable(NavigationRoute.Home.route){
                 HomeScreen(viewModel,context) {
                     navController.navigate(NavigationRoute.Clock.route)
