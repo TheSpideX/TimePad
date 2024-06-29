@@ -1,4 +1,4 @@
-package com.spidex.timepad
+package com.spidex.timepad.mainScreen
 
 import android.content.Context
 import android.widget.Toast
@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -33,20 +34,24 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -55,11 +60,23 @@ import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.constraintlayout.compose.Dimension
 import com.exyte.animatednavbar.utils.noRippleClickable
+import com.kizitonwose.calendar.compose.CalendarState
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.OutDateStyle
+import com.spidex.timepad.R
+import com.spidex.timepad.SoundHelper
+import com.spidex.timepad.viewModel.TaskViewModel
+import com.spidex.timepad.data.AppDatabase
+import com.spidex.timepad.data.Task
+import com.spidex.timepad.data.TaskInstance
+import com.spidex.timepad.data.TaskInstanceStatus
+import com.spidex.timepad.data.TaskRepository
+import com.spidex.timepad.dataChange.AddDialog
+import com.spidex.timepad.dataChange.DeleteDialog
+import com.spidex.timepad.dataChange.EditDialog
 import com.spidex.timepad.ui.theme.background
 import com.spidex.timepad.ui.theme.green
 import com.spidex.timepad.ui.theme.lightGreen
@@ -71,6 +88,7 @@ import com.spidex.timepad.ui.theme.orange
 import com.spidex.timepad.ui.theme.purple
 import com.spidex.timepad.ui.theme.red
 import com.spidex.timepad.ui.theme.silver
+import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
@@ -78,22 +96,25 @@ import java.time.temporal.WeekFields
 import java.util.Locale
 
 @Composable
-fun TaskScreen(viewModel: TaskViewModel,context : Context,navigateToClock: () -> Unit) {
-    val currentMonth = remember { viewModel.currentMonth.value }
-    val endMonth = remember { currentMonth.plusMonths(100) }
+fun TaskScreen(viewModel: TaskViewModel, context : Context, navigateToAllTask :() -> Unit, navigateToClock: () -> Unit) {
     val firstDayOfWeek = remember { WeekFields.of(Locale.getDefault()).firstDayOfWeek }
-    val showDialog by viewModel.showDialog.collectAsState()
+    val showAddDialog by viewModel.showAddDialog.collectAsState()
+    val showEditDialog by viewModel.showEditDialog.collectAsState()
     val deleteDialog by viewModel.showDeleteDialog.collectAsState()
-
     val state = rememberCalendarState(
-        startMonth = currentMonth,
-        endMonth = endMonth,
+        startMonth = YearMonth.now().minusMonths(100),
+        endMonth = YearMonth.now().plusMonths(100),
         firstDayOfWeek = firstDayOfWeek,
-        outDateStyle = OutDateStyle.EndOfRow
+        outDateStyle = OutDateStyle.EndOfRow,
+        firstVisibleMonth = YearMonth.now()
     )
 
     val currentMonthDisplayed = state.firstVisibleMonth.yearMonth
-    val selectedDay = remember { mutableStateOf<LocalDate?>(LocalDate.now()) }
+    val selectedDay by viewModel.selectedDate.collectAsState()
+
+    LaunchedEffect(currentMonthDisplayed) {
+        viewModel.setCurrentMonth(currentMonthDisplayed)
+    }
 
     Box(
         modifier = Modifier
@@ -115,9 +136,11 @@ fun TaskScreen(viewModel: TaskViewModel,context : Context,navigateToClock: () ->
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    MonthHeader(currentMonthDisplayed)
+                    MonthHeader(viewModel,currentMonthDisplayed, state)
 
                     WeekdayHeader()
                     Spacer(modifier = Modifier.height(8.dp))
@@ -131,10 +154,9 @@ fun TaskScreen(viewModel: TaskViewModel,context : Context,navigateToClock: () ->
                                     viewModel = viewModel,
                                     def = 1,
                                     day = day,
-                                    isSelected = selectedDay.value == day.date,
-                                    onClick = {
-                                        selectedDay.value = day.date
-                                        viewModel.getTasksForDate(day.date)
+                                    isSelected = selectedDay == day.date,
+                                    onClick = {date->
+                                       viewModel.setDay(date)
                                     }
                                 )
                             } else {
@@ -142,10 +164,9 @@ fun TaskScreen(viewModel: TaskViewModel,context : Context,navigateToClock: () ->
                                     viewModel = viewModel,
                                     def = 0,
                                     day = day,
-                                    isSelected = selectedDay.value == day.date,
-                                    onClick = {
-                                        selectedDay.value = day.date
-                                        viewModel.getTasksForDate(day.date)
+                                    isSelected = selectedDay == day.date,
+                                    onClick = {date->
+                                        viewModel.setDay(date)
                                     }
                                 )
                             }
@@ -157,20 +178,52 @@ fun TaskScreen(viewModel: TaskViewModel,context : Context,navigateToClock: () ->
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = "Tasks for Selected Date",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                Text(
+                    text = "Tasks for Selected Date",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontFamily = FontFamily(Font(R.font.font2))
+                )
+                FloatingActionButton(
+                    onClick = {
+                        navigateToAllTask()
+                    },
+                    modifier = Modifier.size(32.dp),
+                    containerColor = Color.White,
+                    shape = RoundedCornerShape(20),
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 0.dp,
+                        hoveredElevation = 4.dp,
+                    )
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_setting),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(24.dp)
+                    )
+                }
+
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            TaskListForDate(viewModel, selectedDay.value ?: LocalDate.now(), context,navigateToClock)
+            TaskListForDate(viewModel, context, navigateToClock)
+
         }
+
 
         FloatingActionButton(
             onClick = {
-                      viewModel.setShowDialog(true)
+                viewModel.setAddDialog(true)
             },
             modifier = Modifier
                 .wrapContentSize()
@@ -185,33 +238,26 @@ fun TaskScreen(viewModel: TaskViewModel,context : Context,navigateToClock: () ->
             )
         }
 
+        if(showAddDialog)
+        {
+            AddDialog(context = context, onDismiss = {
+                viewModel.setAddDialog(false)
+            }) {task->
+                viewModel.addNewTask(task)
+                viewModel.setAddDialog(false)
+            }
+        }
 
-        if(showDialog){
-            InfoDialog(
-                viewModel = viewModel ,
-                selectedDay = selectedDay,
-                context = context,
-                onDismiss = {
-                    viewModel.setShowDialog(false)
-                    viewModel.doneEditing()
-                            },
-                onTaskSaved = {
-                    viewModel.insertTask(it)
-                    viewModel.setShowDialog(false)
-                    viewModel.doneEditing()
-                },
-                onTaskUpdate = {
-                    viewModel.updateTask(it)
-                    viewModel.setShowDialog(false)
-                    viewModel.doneEditing()
-                }
-            )
+        if(showEditDialog){
+            EditDialog(viewModel = viewModel, context = context) {
+                viewModel.setEditDialog(false)
+                viewModel.doneEditing()
+            }
         }
 
         if(deleteDialog){
             DeleteDialog(viewModel = viewModel) {
                 viewModel.setShowDeleteDialog(false)
-                viewModel.getTasksForDate(selectedDay.value ?: LocalDate.now())
             }
         }
     }
@@ -231,36 +277,49 @@ fun WeekdayHeader() {
                     .getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault()),
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                fontFamily = FontFamily(Font(R.font.font2))
             )
         }
     }
 }
 
 @Composable
-fun MonthHeader(currentMonth: YearMonth) {
+fun MonthHeader(viewModel: TaskViewModel, currentMonth: YearMonth, calendarState: CalendarState) {
+    val coroutineScope = rememberCoroutineScope()
     Row(
         modifier = Modifier
-            .fillMaxWidth()
+            .wrapContentWidth()
             .padding(start = 8.dp, end = 8.dp)
-            .padding(bottom = 16.dp),
+            .padding(bottom = 16.dp)
+            .clip(shape = RoundedCornerShape(20)),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = currentMonth.month.name.lowercase().replaceFirstChar { it.uppercase() } + " " + currentMonth.year,
             style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.ExtraBold,
+            fontFamily = FontFamily(Font(R.font.font2)),
+            modifier = Modifier
+                .padding(start = 8.dp, end = 8.dp, bottom = 4.dp)
+                .clip(shape = RoundedCornerShape(20))
+                .noRippleClickable {
+                    coroutineScope.launch {
+                        calendarState.animateScrollToMonth(YearMonth.now())
+                        viewModel.setDay(LocalDate.now())
+                    }
+                }
         )
     }
 }
 
 @Composable
-fun Day(viewModel: TaskViewModel,def : Int,day: CalendarDay, isSelected: Boolean, onClick: () -> Unit) {
+fun Day(viewModel: TaskViewModel, def : Int, day: CalendarDay, isSelected: Boolean, onClick: (LocalDate) -> Unit) {
 
-    val color : Boolean = viewModel.checkForTask(day.date)
+    val color : Boolean = viewModel.checkForTaskOnDate(day.date)
 
     Box(
         modifier = Modifier
@@ -273,7 +332,7 @@ fun Day(viewModel: TaskViewModel,def : Int,day: CalendarDay, isSelected: Boolean
             )
             .clickable(
                 enabled = day.position == DayPosition.MonthDate,
-                onClick = onClick
+                onClick = { onClick(day.date) }
             ),
         contentAlignment = Alignment.Center
     ) {
@@ -285,7 +344,8 @@ fun Day(viewModel: TaskViewModel,def : Int,day: CalendarDay, isSelected: Boolean
                     1 -> Color.Black
                     else -> Color.Gray
                 }
-            }
+            },
+            fontFamily = FontFamily(Font(R.font.font2))
         )
 
         if(color){
@@ -303,9 +363,8 @@ fun Day(viewModel: TaskViewModel,def : Int,day: CalendarDay, isSelected: Boolean
 }
 
 @Composable
-fun TaskListForDate(viewModel: TaskViewModel, date: LocalDate,context: Context,navigateToClock: () -> Unit) {
-    viewModel.getTasksForDate(date)
-    val tasks by viewModel.tasksForDate.collectAsState()
+fun TaskListForDate(viewModel: TaskViewModel, context: Context, navigateToClock: () -> Unit) {
+    val tasks by viewModel.tasksForDateWithInstances.collectAsState()
     LazyColumn(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -318,7 +377,7 @@ fun TaskListForDate(viewModel: TaskViewModel, date: LocalDate,context: Context,n
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Task, context : Context, navigateToClock: () -> Unit) {
+fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Pair<Task, TaskInstance>, context : Context, navigateToClock: () -> Unit) {
 
     Card(
         modifier = Modifier
@@ -334,8 +393,8 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Task, context : Context,
                 .height(90.dp)
                 .combinedClickable(
                     onClick = {
-                        if (task.status != TaskStatus.COMPLETED) {
-                            viewModel.setCurrentTask(task)
+                        if (task.second.status != TaskInstanceStatus.COMPLETED) {
+                            viewModel.setCurrentTaskWithInstance(task)
                             viewModel.startOrResumeTimer()
                             navigateToClock()
                         } else {
@@ -345,12 +404,10 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Task, context : Context,
                         }
                     },
                     onDoubleClick = {
-                        if(task.status != TaskStatus.COMPLETED) {
+                        if (task.second.status != TaskInstanceStatus.COMPLETED) {
                             viewModel.setEditTask(task)
-                            viewModel.setShowDialog(true)
-                        }
-                        else
-                        {
+                            viewModel.setEditDialog(true)
+                        } else {
                             Toast
                                 .makeText(context, "Task is Already Completed", Toast.LENGTH_SHORT)
                                 .show()
@@ -364,7 +421,7 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Task, context : Context,
         ) {
             val (image, title, tag, time, play) = createRefs()
             Image(
-                painter = painterResource(id = task.icon ?: R.drawable.ic_personal),
+                painter = painterResource(id = task.first.icon),
                 contentDescription = null,
                 modifier = Modifier
                     .width(70.dp)
@@ -377,10 +434,11 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Task, context : Context,
                     },
             )
             Text(
-                text = task.title,
+                text = task.first.title,
                 color = Color.Black,
                 fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
+                fontFamily = FontFamily(Font(R.font.font2)),
                 modifier = Modifier
                     .width(160.dp)
                     .constrainAs(title) {
@@ -399,9 +457,9 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Task, context : Context,
                         top.linkTo(parent.top, margin = 16.dp)
                         end.linkTo(parent.end, margin = 20.dp)
                     },
-                colors = CardDefaults.cardColors(containerColor = when(task.status){
-                    TaskStatus.NOT_STARTED -> red
-                    TaskStatus.COMPLETED -> green
+                colors = CardDefaults.cardColors(containerColor = when(task.second.status){
+                    TaskInstanceStatus.NOT_STARTED -> red
+                    TaskInstanceStatus.COMPLETED -> green
                     else -> Color(0xfFFFA656)
                 })
             ){}
@@ -417,9 +475,15 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Task, context : Context,
                         bottom.linkTo(parent.bottom, margin = 16.dp)
                     }
                     .noRippleClickable {
-                        viewModel.setCurrentTask(task)
-                        viewModel.startOrResumeTimer()
-                        navigateToClock()
+                        if (task.second.status != TaskInstanceStatus.COMPLETED) {
+                            viewModel.setCurrentTaskWithInstance(task)
+                            viewModel.startOrResumeTimer()
+                            navigateToClock()
+                        } else {
+                            Toast
+                                .makeText(context, "Task is Already Completed", Toast.LENGTH_SHORT)
+                                .show()
+                        }
                     }
             )
 
@@ -438,11 +502,11 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Task, context : Context,
                         .wrapContentSize()
                         .padding(end = 12.dp)
                         .background(
-                            color = when (task.tag) {
+                            color = when (task.first.tag) {
                                 "Work" -> lightRed
                                 "Coding" -> lightRed
                                 "Workout" -> lightOrange
-                                "Reading" -> lightGreen
+                                "Study" -> lightGreen
                                 "Project" -> lightPurple
                                 else -> lightSilver
                             },
@@ -451,18 +515,19 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Task, context : Context,
                 )
                 {
                     Text(
-                        text = task.tag ?: "Work",
-                        color = when(task.tag){
+                        text = task.first.tag,
+                        color = when(task.first.tag){
                             "Work" -> red
                             "Coding" -> red
                             "Workout" -> orange
-                            "Reading" -> green
+                            "Study" -> green
                             "Project" -> purple
                             else -> silver
                         },
                         letterSpacing = 2.sp,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = FontFamily(Font(R.font.font2)),
                         modifier = Modifier.padding(start = 8.dp,end = 8.dp,top = 2.dp,bottom = 2.dp)
                     )
                 }
@@ -476,19 +541,15 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Task, context : Context,
 @Composable
 fun TaskScreenPreview() {
     val context = LocalContext.current
-//    val task = Task(
-//        id = 0,
-//        title = "Project",
-//        durationMinutes = 1,
-//        tag = "Coding",
-//        icon = R.drawable.ic_code,
-//    )
-    val taskViewModel = TaskViewModel(taskRepository = TaskRepository(AppDatabase.getDatabase(LocalContext.current).taskDao()))
-    TaskScreen(taskViewModel,context){
+
+    val soundHelper = SoundHelper(LocalContext.current)
+    val viewModel = TaskViewModel(taskRepository = TaskRepository(
+        AppDatabase.getDatabase(
+        LocalContext.current).taskDao()),
+        soundHelper
+    )
+    TaskScreen(viewModel,context,{}){
 
     }
 
-//    TaskView(viewModel = taskViewModel, task =task ) {
-//
-//    }
 }

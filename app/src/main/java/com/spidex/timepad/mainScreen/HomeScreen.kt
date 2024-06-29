@@ -1,4 +1,4 @@
-package com.spidex.timepad
+package com.spidex.timepad.mainScreen
 
 import android.content.Context
 import android.widget.Toast
@@ -32,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -39,6 +41,18 @@ import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.constraintlayout.compose.Dimension
 import com.exyte.animatednavbar.utils.noRippleClickable
+import com.spidex.timepad.R
+import com.spidex.timepad.SoundHelper
+import com.spidex.timepad.viewModel.TaskViewModel
+import com.spidex.timepad.data.AppDatabase
+import com.spidex.timepad.data.RepeatInterval
+import com.spidex.timepad.data.Task
+import com.spidex.timepad.data.TaskInstance
+import com.spidex.timepad.data.TaskInstanceStatus
+import com.spidex.timepad.data.TaskRepository
+import com.spidex.timepad.dataChange.AddDialog
+import com.spidex.timepad.dataChange.DeleteDialog
+import com.spidex.timepad.dataChange.EditDialog
 import com.spidex.timepad.ui.theme.background
 import com.spidex.timepad.ui.theme.green
 import com.spidex.timepad.ui.theme.lightGreen
@@ -50,16 +64,18 @@ import com.spidex.timepad.ui.theme.orange
 import com.spidex.timepad.ui.theme.purple
 import com.spidex.timepad.ui.theme.red
 import com.spidex.timepad.ui.theme.silver
+import java.time.LocalDate
+import java.time.LocalTime
 
 
 @Composable
 fun HomeScreen(viewModel: TaskViewModel, context : Context, navigateToClock: () -> Unit){
 
-    val taskList by viewModel.todayTasks.collectAsState()
-    val currentTask by viewModel.currentTask.collectAsState()
-    val showDialog by viewModel.showDialog.collectAsState()
-    val deleteDialog by viewModel.showDeleteDialog.collectAsState()
-
+    val todayTasksWithInstances by viewModel.todayTasksWithInstances.collectAsState()
+    val currentTaskWithInstances by viewModel.currentTaskWithInstances.collectAsState()
+    val showEditDialog by viewModel.showEditDialog.collectAsState()
+    val showDeleteDialog by viewModel.showDeleteDialog.collectAsState()
+    val showAddDialog by viewModel.showAddDialog.collectAsState()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -77,7 +93,8 @@ fun HomeScreen(viewModel: TaskViewModel, context : Context, navigateToClock: () 
             Text(
                 text = "Task",
                 fontSize = 32.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.ExtraBold,
+                fontFamily = FontFamily(Font(R.font.font2))
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -90,7 +107,7 @@ fun HomeScreen(viewModel: TaskViewModel, context : Context, navigateToClock: () 
                 shape = RoundedCornerShape(12),
                 elevation = CardDefaults.cardElevation(16.dp),
                 onClick = {
-                    if(currentTask != null){
+                    if(currentTaskWithInstances != null){
                         viewModel.startOrResumeTimer()
                         navigateToClock()
                     }
@@ -106,7 +123,7 @@ fun HomeScreen(viewModel: TaskViewModel, context : Context, navigateToClock: () 
                         .height(140.dp)
                 ) {
                     val (name,time,arrow) = createRefs()
-                    val remTime = currentTask?.remainingTimeMillis ?: 0
+                    val remTime = currentTaskWithInstances?.second?.remainingTimeMillis ?: 0
                     var hour = (remTime / 3600000).toString()
                     if(hour.length == 1)
                     {
@@ -127,6 +144,7 @@ fun HomeScreen(viewModel: TaskViewModel, context : Context, navigateToClock: () 
                         color = Color.White,
                         fontSize = 36.sp,
                         fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily(Font(R.font.font2)),
                         modifier = Modifier
                             .constrainAs(time){
                                 top.linkTo(parent.top,margin = 16.dp)
@@ -169,9 +187,11 @@ fun HomeScreen(viewModel: TaskViewModel, context : Context, navigateToClock: () 
                         Spacer(modifier = Modifier.width(8.dp))
 
                         Text(
-                            text = currentTask?.title ?: "No Task",
+                            text = currentTaskWithInstances?.first?.title ?: "No Task",
                             color = Color.White,
-                            fontSize = 18.sp
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            fontFamily = FontFamily(Font(R.font.font2))
                         )
 
                     }
@@ -191,7 +211,7 @@ fun HomeScreen(viewModel: TaskViewModel, context : Context, navigateToClock: () 
                 color = Color.Black,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier
+                fontFamily = FontFamily(Font(R.font.font2)),
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -200,49 +220,40 @@ fun HomeScreen(viewModel: TaskViewModel, context : Context, navigateToClock: () 
                 modifier = Modifier
                     .fillMaxSize()
             ) {
-                items(taskList) { task ->
-                    TaskView(viewModel,task, navigateToClock)
+                items(todayTasksWithInstances) { taskInstance ->
+                    TaskView(viewModel,taskInstance, navigateToClock)
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
 
         }
 
-        if(showDialog){
-            InfoDialog(
-                viewModel = viewModel ,
-                selectedDay = null,
-                context = context,
-                onDismiss = {
-                    viewModel.setShowDialog(false)
-                    viewModel.doneEditing()
-                            },
-                onTaskSaved = {
-                    viewModel.insertTask(it)
-                    viewModel.setShowDialog(false)
-                    viewModel.doneEditing()
-                },
-                onTaskUpdate = {
-                    viewModel.updateTask(it)
-                    viewModel.setShowDialog(false)
-                    viewModel.doneEditing()
-
-                }
-            )
+        if(showAddDialog)
+        {
+            AddDialog(context = context, onDismiss = {viewModel.setAddDialog(false)}){task->
+                viewModel.addNewTask(task)
+                viewModel.setAddDialog(false)
+            }
         }
 
-        if(deleteDialog){
+        if(showEditDialog){
+            EditDialog(viewModel = viewModel, context = context) {
+                viewModel.setEditDialog(false)
+                viewModel.doneEditing()
+            }
+        }
+
+        if(showDeleteDialog){
             DeleteDialog(viewModel = viewModel) {
                 viewModel.setShowDeleteDialog(false)
             }
         }
-
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
+fun TaskView(viewModel: TaskViewModel, taskInstance : Pair<Task, TaskInstance>, navigateToClock: () -> Unit) {
 
     Card(
         modifier = Modifier
@@ -258,23 +269,23 @@ fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
                 .height(100.dp)
                 .combinedClickable(
                     onClick = {
-                        viewModel.setCurrentTask(task)
+                        viewModel.setCurrentTaskWithInstance(taskInstance)
                         viewModel.startOrResumeTimer()
                         navigateToClock()
                     },
                     onDoubleClick = {
-                        viewModel.setEditTask(task)
-                        viewModel.setShowDialog(true)
+                        viewModel.setEditTask(taskInstance)
+                        viewModel.setEditDialog(true)
                     },
                     onLongClick = {
-                        viewModel.setDeleteTask(task)
+                        viewModel.setDeleteTask(taskInstance)
                         viewModel.setShowDeleteDialog(true)
                     }
                 )
         ) {
             val (image, title, tag, time, play) = createRefs()
             Image(
-                painter = painterResource(id = task.icon ?: R.drawable.ic_personal),
+                painter = painterResource(id = taskInstance.first.icon),
                 contentDescription = null,
                 modifier = Modifier
                     .width(70.dp)
@@ -287,10 +298,11 @@ fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
                     },
             )
             Text(
-                text = task.title,
+                text = taskInstance.first.title,
                 color = Color.Black,
                 fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
+                fontFamily = FontFamily(Font(R.font.font2)),
                 modifier = Modifier
                     .width(160.dp)
                     .constrainAs(title) {
@@ -301,7 +313,7 @@ fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
                     .horizontalScroll(rememberScrollState())
             )
 
-            val remTime = task.remainingTimeMillis
+            val remTime = taskInstance.second.remainingTimeMillis
             var hour = (remTime / 3600000).toString()
             if(hour.length == 1)
             {
@@ -323,7 +335,8 @@ fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
                 modifier = Modifier.constrainAs(time) {
                     top.linkTo(parent.top, margin = 16.dp)
                     end.linkTo(parent.end, margin = 20.dp)
-                }
+                },
+                fontFamily = FontFamily(Font(R.font.font2))
             )
 
             Image(
@@ -337,7 +350,7 @@ fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
                         bottom.linkTo(parent.bottom, margin = 16.dp)
                     }
                     .noRippleClickable {
-                        viewModel.setCurrentTask(task)
+                        viewModel.setCurrentTaskWithInstance(taskInstance)
                         viewModel.startOrResumeTimer()
                         navigateToClock()
                     }
@@ -358,11 +371,11 @@ fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
                         .wrapContentSize()
                         .padding(end = 12.dp)
                         .background(
-                            color = when (task.tag) {
+                            color = when (taskInstance.first.tag) {
                                 "Work" -> lightRed
                                 "Coding" -> lightRed
                                 "Workout" -> lightOrange
-                                "Reading" -> lightGreen
+                                "Study" -> lightGreen
                                 "Project" -> lightPurple
                                 else -> lightSilver
                             },
@@ -371,18 +384,19 @@ fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
                 )
                 {
                     Text(
-                        text = task.tag ?: "Work",
-                        color = when(task.tag){
+                        text = taskInstance.first.tag,
+                        color = when(taskInstance.first.tag){
                             "Work" -> red
                             "Coding" -> red
                             "Workout" -> orange
-                            "Reading" -> green
+                            "Study" -> green
                             "Project" -> purple
                             else -> silver
                         },
                         letterSpacing = 2.sp,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily(Font(R.font.font2)),
+                        fontWeight = FontWeight.ExtraBold,
                         modifier = Modifier.padding(start = 8.dp,end = 8.dp,top = 4.dp,bottom = 4.dp)
                     )
                 }
@@ -395,17 +409,38 @@ fun TaskView(viewModel: TaskViewModel,task : Task,navigateToClock: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenPreview(){
-    val taskViewModel = TaskViewModel(taskRepository = TaskRepository(AppDatabase.getDatabase(
-        LocalContext.current).taskDao())
+    val soundHelper = SoundHelper(LocalContext.current)
+    val viewModel = TaskViewModel(taskRepository = TaskRepository(
+        AppDatabase.getDatabase(
+        LocalContext.current).taskDao()),
+        soundHelper
     )
-    val task = Task(
-        id = 0,
-        title = "Project",
-        durationMinutes = 1,
-        tag = "Workout",
-        icon = R.drawable.ic_workout,
+    val sampleTask = Task(
+        id = 1,
+        title = "Morning Run",
+        description = "Go for a 30-minute jog in the park",
+        durationMinutes = 40,
+        repeatInterval = RepeatInterval.NONE,
+        createdAt = LocalDate.now(),
+        scheduledTime = LocalTime.of(7, 0),
+        icon = R.drawable.ic_personal,
+        tag = "Personal"
     )
-    TaskView(viewModel = taskViewModel, task = task) {
-        
-    }
+
+    val sampleTaskInstance = TaskInstance(
+        id = 101,
+        parentTaskId = sampleTask.id,
+        scheduledDate = LocalDate.now(),
+        scheduledTime = LocalTime.of(7, 0),
+        status = TaskInstanceStatus.NOT_STARTED,
+        isCompleted = false,
+        remainingTimeMillis = sampleTask.durationMinutes * 60 * 1000L,
+        durationMinutes = sampleTask.durationMinutes,
+        notes = "Remember to stretch before running"
+    )
+
+    val task : Pair<Task, TaskInstance> = Pair(sampleTask,sampleTaskInstance)
+
+    TaskView(viewModel,task){}
+
 }

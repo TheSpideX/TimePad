@@ -27,14 +27,24 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.exyte.animatednavbar.utils.noRippleClickable
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import com.spidex.timepad.data.AppDatabase
+import com.spidex.timepad.data.NavigationRoute
+import com.spidex.timepad.data.TaskRepository
+import com.spidex.timepad.mainScreen.DashboardScreen
+import com.spidex.timepad.mainScreen.HomeScreen
+import com.spidex.timepad.mainScreen.SplashScreen
+import com.spidex.timepad.mainScreen.TaskScreen
+import com.spidex.timepad.otherScreen.AllTaskScreen
+import com.spidex.timepad.otherScreen.TimeScreen
 import com.spidex.timepad.ui.theme.background
-import java.time.LocalDate
+import com.spidex.timepad.viewModel.TaskViewModel
 
 @Composable
 fun AppNavigation(viewModel: TaskViewModel){
@@ -135,7 +145,11 @@ fun AppNavigation(viewModel: TaskViewModel){
 
             composable(NavigationRoute.Splash.route){
                 SplashScreen {
-                    navController.navigate(NavigationRoute.Home.route)
+                    navController.navigate(NavigationRoute.Home.route){
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            inclusive = true
+                        }
+                    }
                 }
             }
 
@@ -145,22 +159,26 @@ fun AppNavigation(viewModel: TaskViewModel){
                 }
             }
             composable(NavigationRoute.Task.route){
-                TaskScreen(viewModel,context){
+                TaskScreen(viewModel,context, navigateToAllTask = {
+                    navController.navigate(NavigationRoute.AllTask.route)
+                }){
                     navController.navigate(NavigationRoute.Clock.route)
                 }
             }
             composable(NavigationRoute.Dashboard.route){
-                DashboardScreen(viewModel,context)
+                DashboardScreen(viewModel){
+                    navController.navigate(NavigationRoute.AllTask.route)
+                }
             }
             composable(NavigationRoute.Clock.route){
-                TimeScreen(navController,viewModel,context){task->
-                    val newTask = task.copy(
-                        status = TaskStatus.COMPLETED,
-                        completedOn = LocalDate.now()
-                    )
-                    viewModel.updateTask(newTask)
-                    viewModel.setCurrentTask(null)
+                TimeScreen(navController,viewModel,context){taskInstance->
+                    viewModel.markTaskCompleted(taskInstance)
+                    viewModel.setCurrentTaskWithInstance(null)
                 }
+            }
+
+            composable(NavigationRoute.AllTask.route){
+                AllTaskScreen(navController = navController,viewModel = viewModel, context = context)
             }
         }
     }
@@ -171,8 +189,12 @@ fun AppNavigation(viewModel: TaskViewModel){
 )
 @Composable
 fun Preview(){
-    val viewModel = TaskViewModel(taskRepository = TaskRepository(AppDatabase.getDatabase(
-        LocalContext.current).taskDao())
+
+    val soundHelper = SoundHelper(LocalContext.current)
+    val viewModel = TaskViewModel(taskRepository = TaskRepository(
+        AppDatabase.getDatabase(
+        LocalContext.current).taskDao()),
+        soundHelper
     )
     AppNavigation(viewModel)
 }

@@ -1,6 +1,5 @@
-package com.spidex.timepad
+package com.spidex.timepad.dataChange
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -22,7 +21,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -40,6 +40,14 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.constraintlayout.compose.Dimension
+import com.spidex.timepad.R
+import com.spidex.timepad.SoundHelper
+import com.spidex.timepad.viewModel.TaskViewModel
+import com.spidex.timepad.data.AppDatabase
+import com.spidex.timepad.data.RepeatInterval
+import com.spidex.timepad.data.Task
+import com.spidex.timepad.data.TaskInstance
+import com.spidex.timepad.data.TaskRepository
 import com.spidex.timepad.ui.theme.green
 import com.spidex.timepad.ui.theme.lightGreen
 import com.spidex.timepad.ui.theme.lightOrange
@@ -50,18 +58,18 @@ import com.spidex.timepad.ui.theme.orange
 import com.spidex.timepad.ui.theme.purple
 import com.spidex.timepad.ui.theme.red
 import com.spidex.timepad.ui.theme.silver
-import java.time.LocalDate
+
 
 @Composable
 fun DeleteDialog(
     viewModel: TaskViewModel,
     onDismiss: () -> Unit,
-){
+) {
     var deletePermanently by remember {
         mutableStateOf(false)
     }
-    val currentTask by viewModel.currentTask.collectAsState()
-    val task by viewModel.deleteTask.collectAsState()
+    val currentTaskWithInstance by viewModel.currentTaskWithInstances.collectAsState()
+    val deleteTaskWithInstance by viewModel.deleteTaskWithInstances.collectAsState()
 
     Dialog(onDismissRequest = onDismiss) {
             Card(
@@ -78,34 +86,30 @@ fun DeleteDialog(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ){
                     Text(
-                        text = if(task?.repeatInterval!=RepeatInterval.NONE) {
-                                    if (deletePermanently) "Delete"
-                                    else "Shift"
-                                }
-                                else{
-                                    "Delete"
-                                },
+                        text = "Delete",
                         fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = FontFamily(Font(R.font.font2)),
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
                         text =
-                            if(task?.repeatInterval!=RepeatInterval.NONE) {
+                            if(deleteTaskWithInstance!!.first.repeatInterval!= RepeatInterval.NONE) {
                                 if (deletePermanently) "Task will be Deleted Permanently"
-                                else "Task will be Shifted to Next Date"
+                                else "Today Instance will be Deleted"
                             }
                             else{
                                 "Task will be Deleted Permanently"
                             },
-                        color = Color.Black
+                        color = Color.Black,
+                        fontFamily = FontFamily(Font(R.font.font2)),
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    TaskViewForDelete(viewModel = viewModel, task = task!!, deletePermanently){
+                    TaskViewForDelete(task = deleteTaskWithInstance!!, deletePermanently){
                         deletePermanently = !deletePermanently
                     }
 
@@ -113,26 +117,26 @@ fun DeleteDialog(
 
                         Button(
                             onClick = {
-                                if(task?.repeatInterval == RepeatInterval.NONE){
-                                    if(currentTask == task){
-                                        viewModel.setCurrentTask(null)
+                                if(deleteTaskWithInstance!!.first.repeatInterval == RepeatInterval.NONE){
+                                    if(currentTaskWithInstance == deleteTaskWithInstance){
+                                        viewModel.setCurrentTaskWithInstance(null)
                                     }
-                                    if(task!=null)
-                                        viewModel.deleteTask(task!!)
+                                    viewModel.deleteTask(deleteTaskWithInstance!!)
+                                    viewModel.onDeleteDone()
                                 }
                                 else
                                 {
-                                    if(currentTask == task){
-                                        viewModel.setCurrentTask(null)
+                                    if(currentTaskWithInstance == deleteTaskWithInstance){
+                                        viewModel.setCurrentTaskWithInstance(null)
                                     }
                                     if(deletePermanently){
-                                        if(task!=null)
-                                            viewModel.deleteTask(task!!)
+                                        viewModel.deleteTask(deleteTaskWithInstance!!)
+                                        viewModel.onDeleteDone()
                                     }
                                     else
                                     {
-                                        if(task!=null)
-                                            viewModel.shiftTaskToNextInterval(task!!)
+                                        viewModel.deleteInstance(deleteTaskWithInstance!!.second)
+                                        viewModel.onDeleteDone()
                                     }
                                 }
                                 onDismiss()
@@ -147,13 +151,10 @@ fun DeleteDialog(
                             shape = RoundedCornerShape(20)
                         ) {
                             Text(
-                                text = if(task?.repeatInterval != RepeatInterval.NONE) {
-                                    if (deletePermanently) "Delete" else "Shift"
-                                }
-                                else{
-                                    "Delete"
-                                },
-                                modifier = Modifier
+                                text = "Delete",
+                                modifier = Modifier,
+                                fontFamily = FontFamily(Font(R.font.font2)),
+                                fontWeight = FontWeight.Bold
                             )
                         }
 
@@ -163,7 +164,8 @@ fun DeleteDialog(
                         }) {
                             Text(
                                 text = "Cancel",
-                                color = Color.Gray
+                                color = Color.Gray,
+                                fontFamily = FontFamily(Font(R.font.font2)),
                             )
                         }
                     }
@@ -171,9 +173,8 @@ fun DeleteDialog(
             }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TaskViewForDelete(viewModel: TaskViewModel, task : Task,delete : Boolean, onClick : () -> Unit) {
+fun TaskViewForDelete(task : Pair<Task, TaskInstance>, delete : Boolean, onClick : () -> Unit) {
 
     Card(
         modifier = Modifier
@@ -193,7 +194,7 @@ fun TaskViewForDelete(viewModel: TaskViewModel, task : Task,delete : Boolean, on
         ) {
             val (image, title, tag, time, play) = createRefs()
             Image(
-                painter = painterResource(id = task.icon ?: R.drawable.ic_personal),
+                painter = painterResource(id = task.first.icon),
                 contentDescription = null,
                 modifier = Modifier
                     .width(70.dp)
@@ -206,10 +207,11 @@ fun TaskViewForDelete(viewModel: TaskViewModel, task : Task,delete : Boolean, on
                     },
             )
             Text(
-                text = task.title,
+                text = task.first.title,
                 color = Color.Black,
+                fontFamily = FontFamily(Font(R.font.font2)),
                 fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
                 modifier = Modifier
                     .width(100.dp)
                     .constrainAs(title) {
@@ -229,11 +231,10 @@ fun TaskViewForDelete(viewModel: TaskViewModel, task : Task,delete : Boolean, on
                         end.linkTo(parent.end, margin = 20.dp)
                     },
                 colors = CardDefaults.cardColors(containerColor =
-                    if(task.repeatInterval!=RepeatInterval.NONE) {
+                    if(task.first.repeatInterval!= RepeatInterval.NONE) {
                         when (delete) {
                             true -> red
                             false -> green
-                            else -> Color(0xfFFFA656)
                         }
                     }
                     else{
@@ -269,7 +270,7 @@ fun TaskViewForDelete(viewModel: TaskViewModel, task : Task,delete : Boolean, on
                         .wrapContentSize()
                         .padding(end = 12.dp)
                         .background(
-                            color = when (task.tag) {
+                            color = when (task.first.tag) {
                                 "Work" -> lightRed
                                 "Coding" -> lightRed
                                 "Workout" -> lightOrange
@@ -282,8 +283,8 @@ fun TaskViewForDelete(viewModel: TaskViewModel, task : Task,delete : Boolean, on
                 )
                 {
                     Text(
-                        text = task.tag ?: "Work",
-                        color = when(task.tag){
+                        text = task.first.tag,
+                        color = when(task.first.tag){
                             "Work" -> red
                             "Coding" -> red
                             "Workout" -> orange
@@ -293,7 +294,8 @@ fun TaskViewForDelete(viewModel: TaskViewModel, task : Task,delete : Boolean, on
                         },
                         letterSpacing = 2.sp,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = FontFamily(Font(R.font.font2)),
                         modifier = Modifier.padding(start = 8.dp,end = 8.dp,top = 2.dp,bottom = 2.dp)
                     )
                 }
@@ -306,19 +308,13 @@ fun TaskViewForDelete(viewModel: TaskViewModel, task : Task,delete : Boolean, on
 @Preview(showBackground = true)
 @Composable
 fun DeleteDialogPreview(){
-    val date = remember { mutableStateOf<LocalDate?>(LocalDate.now()) }
-    val task = Task(
-        id = 0,
-        title = "Project",
-        durationMinutes = 1,
-        tag = "Workout",
-        icon = R.drawable.ic_workout,
-        repeatInterval = RepeatInterval.NONE
+    val soundHelper = SoundHelper(LocalContext.current)
+    val viewModel = TaskViewModel(taskRepository = TaskRepository(
+        AppDatabase.getDatabase(
+        LocalContext.current).taskDao()),
+        soundHelper
     )
-    val context = LocalContext.current
-    val taskViewModel = TaskViewModel(taskRepository = TaskRepository(AppDatabase.getDatabase(
-        LocalContext.current).taskDao()))
-    DeleteDialog(taskViewModel){
+    DeleteDialog(viewModel){
 
     }
 }

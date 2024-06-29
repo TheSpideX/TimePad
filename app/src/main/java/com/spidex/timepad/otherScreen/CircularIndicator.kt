@@ -1,4 +1,4 @@
-package com.spidex.timepad
+package com.spidex.timepad.otherScreen
 
 import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.*
@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.spidex.timepad.viewModel.TaskViewModel
 
 @Composable
 fun CircularProgressIndicator(
@@ -147,19 +148,20 @@ fun CircularProgressIndicator(
             )
         }
 
-        val remTime by viewModel.currentTask.collectAsState()
-        val totalSecond = remTime?.remainingTimeMillis?.div(1000) ?: 0
-        var sec = totalSecond?.mod(60).toString()
+        val instance by viewModel.currentTaskWithInstances.collectAsState()
+        val remTime = instance?.second?.remainingTimeMillis ?: 0
+        val totalSecond = remTime.div(1000)
+        var sec = totalSecond.mod(60).toString()
         if(sec.length == 1)
         {
             sec = "0$sec"
         }
-        var min = (totalSecond?.div(60))?.mod(60).toString()
+        var min = (totalSecond.div(60)).mod(60).toString()
         if(min.length == 1)
         {
             min = "0$min"
         }
-        var hour = totalSecond?.div(3600).toString()
+        var hour = totalSecond.div(3600).toString()
         if(hour.length == 1)
         {
             hour = "0$hour"

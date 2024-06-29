@@ -69,6 +69,11 @@ dependencies {
     //Graph
     implementation ("io.github.ehsannarmani:compose-charts:0.0.6")
 
+    implementation("com.jakewharton.threetenabp:threetenabp:1.4.7")
+
+    //time picker
+    implementation ("com.github.commandiron:WheelPickerCompose:1.1.11")
+
     implementation ("androidx.compose.material3:material3")
     implementation ("androidx.compose.ui:ui-tooling:1.6.8")
     implementation ("androidx.compose.ui:ui")

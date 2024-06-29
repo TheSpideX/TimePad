@@ -1,15 +1,12 @@
-package com.spidex.timepad
+package com.spidex.timepad.data
 
 import android.content.Context
-import androidx.room.Database
-import androidx.room.Room
-import androidx.room.RoomDatabase
-import androidx.room.TypeConverter
-import androidx.room.TypeConverters
+import androidx.room.*
 import java.time.LocalDate
+import java.time.LocalTime
 
 
-@Database(entities = [Task::class], version = 1)
+@Database(entities = [Task::class, TaskInstance::class], version = 1)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
 
@@ -34,16 +31,18 @@ abstract class AppDatabase : RoomDatabase() {
 }
 
 class Converters {
+    // LocalDate Converter
     @TypeConverter
-    fun fromTimestamp(value: Long?): LocalDate? {
+    fun fromTimestampToLocalDate(value: Long?): LocalDate? {
         return value?.let { LocalDate.ofEpochDay(it) }
     }
 
     @TypeConverter
-    fun dateToTimestamp(date: LocalDate?): Long? {
+    fun localDateToTimestamp(date: LocalDate?): Long? {
         return date?.toEpochDay()
     }
 
+    // RepeatInterval Converter
     @TypeConverter
     fun toRepeatInterval(value: String?): RepeatInterval? {
         return value?.let { enumValueOf<RepeatInterval>(it) }
@@ -52,5 +51,26 @@ class Converters {
     @TypeConverter
     fun fromRepeatInterval(repeatInterval: RepeatInterval?): String? {
         return repeatInterval?.name
+    }
+
+    // TaskStatus Converter
+    @TypeConverter
+    fun toTaskStatus(value: String): TaskInstanceStatus {
+        return enumValueOf(value)
+    }
+
+    @TypeConverter
+    fun fromTaskStatus(status: TaskInstanceStatus): String {
+        return status.name
+    }
+
+    @TypeConverter
+    fun toLocalTime(value: Long?): LocalTime? {
+        return value?.let { LocalTime.ofSecondOfDay(it) }
+    }
+
+    @TypeConverter
+    fun fromLocalTime(time: LocalTime?): Long? {
+        return time?.toSecondOfDay()?.toLong()
     }
 }

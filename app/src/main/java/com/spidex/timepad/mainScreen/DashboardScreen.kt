@@ -1,10 +1,11 @@
-package com.spidex.timepad
+package com.spidex.timepad.mainScreen
 
-import android.content.Context
 import androidx.compose.animation.core.EaseInOutCubic
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,38 +26,38 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
 import com.exyte.animatednavbar.utils.noRippleClickable
+import com.spidex.timepad.R
+import com.spidex.timepad.SoundHelper
+import com.spidex.timepad.viewModel.TaskViewModel
+import com.spidex.timepad.data.AppDatabase
+import com.spidex.timepad.data.TaskRepository
 import com.spidex.timepad.ui.theme.background
 import ir.ehsannarmani.compose_charts.LineChart
 import ir.ehsannarmani.compose_charts.models.AnimationMode
 import ir.ehsannarmani.compose_charts.models.DrawStyle
 import ir.ehsannarmani.compose_charts.models.Line
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun DashboardScreen(viewModel: TaskViewModel,context: Context){
-    val todayCompletedTask by viewModel.todayCompletedTasks.collectAsState()
-    val weekCompletedTask by viewModel.last7DaysCompletedTasks.collectAsState()
-    viewModel.calculateTodayCompletedTime()
-    viewModel.calculateLast7DaysCompletedTime()
-    val timeToday by viewModel.todayCompletedTime.collectAsState()
-    val timeWeek by viewModel.last7DaysCompletedTime.collectAsState()
-    val historyTime by viewModel.timeSpentLast7Days.collectAsState()
-    val totalTimeSpent by viewModel.totalTimeSpent.collectAsState()
+fun DashboardScreen(viewModel: TaskViewModel, onNavigateToAllTaskScreen : () -> Unit){
+
+    val todayProductivity by viewModel.todayProductivity.collectAsState()
+    val lastWeekProductivity by viewModel.lastWeekProductivity.collectAsState()
+    val graphData by viewModel.graphData.collectAsState()
 
     val selected by viewModel.selectedPeriod.collectAsState()
 
@@ -122,22 +123,25 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
                         Text(
                             text = "Task",
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier,
+                            fontFamily = FontFamily(Font(R.font.font2))
                         )
                         Text(
                             text = "Completed",
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily(Font(R.font.font2)),
                             modifier = Modifier
                         )
                     }
 
                     Text(
-                        text = if(selected == "day") todayCompletedTask.size.toString()
-                            else    weekCompletedTask.size.toString(),
+                        text = if(selected == "day") todayProductivity.first.toString()
+                            else    lastWeekProductivity.first.toString(),
                         fontSize = 36.sp,
                         fontWeight = FontWeight.ExtraBold,
+                        fontFamily = FontFamily(Font(R.font.font2)),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = 8.dp, end = 8.dp)
@@ -189,13 +193,15 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
                         Text(
                             text = "Time",
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily(Font(R.font.font2)),
                             modifier = Modifier
                         )
                         Text(
                             text = "Duration",
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily(Font(R.font.font2)),
                             modifier = Modifier
                         )
                     }
@@ -213,7 +219,11 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
                     ) {
 
 
-                        val totalSec = totalTimeSpent / 1000
+                        var totalSec = todayProductivity.second / 1000
+                        if(selected == "week")
+                        {
+                            totalSec = lastWeekProductivity.second / 1000
+                        }
                         val totalMin = totalSec / 60
                         val hour = totalMin / 60
                         val min = totalMin % 60
@@ -222,12 +232,14 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
                             text = hour.toString(),
                             fontSize = 36.sp,
                             fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily(Font(R.font.font2)),
                             modifier = Modifier
                         )
                         Text(
                             text = "h",
                             fontSize = 24.sp,
                             color = Color.Gray,
+                            fontFamily = FontFamily(Font(R.font.font2)),
                             modifier = Modifier
                                 .offset(y = (-4).dp)
                                 .padding(end = 8.dp)
@@ -236,12 +248,14 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
                             text = min.toString(),
                             fontSize = 36.sp,
                             fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily(Font(R.font.font2)),
                             modifier = Modifier
                         )
                         Text(
                             text = "m",
                             fontSize = 24.sp,
                             color = Color.Gray,
+                            fontFamily = FontFamily(Font(R.font.font2)),
                             modifier = Modifier
                                 .offset(y = (-4).dp)
                                 .padding(end = 4.dp)
@@ -258,10 +272,12 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
                 .padding(start = 32.dp, end = 24.dp, top = 48.dp, bottom = 48.dp)
                 .background(color = Color(0xFFe9e9fd), RoundedCornerShape(20))
                 .noRippleClickable {
-                    viewModel.setSelectedPeriod(when (selected) {
-                        "day" -> "week"
-                        else -> "day"
-                    })
+                    viewModel.setSelectedPeriod(
+                        when (selected) {
+                            "day" -> "week"
+                            else -> "day"
+                        }
+                    )
                 },
         ){
             Card(
@@ -283,6 +299,7 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
                         else -> Color.Gray
                     },
                     fontSize = 20.sp,
+                    fontFamily = FontFamily(Font(R.font.font2)),
                     modifier = Modifier
                         .padding(8.dp)
                         .align(Alignment.CenterHorizontally)
@@ -308,6 +325,7 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
                         "week" -> Color.Black
                         else -> Color.Gray
                     },
+                    fontFamily = FontFamily(Font(R.font.font2)),
                     fontSize = 20.sp,
                     modifier = Modifier
                         .padding(8.dp)
@@ -318,10 +336,17 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
         Card(
             modifier = Modifier
                 .wrapContentSize()
-                .padding(8.dp),
+                .padding(8.dp)
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = {
+                        onNavigateToAllTaskScreen()
+                    }
+                ),
             colors = CardDefaults.cardColors(containerColor = Color.White),
             elevation = CardDefaults.elevatedCardElevation(2.dp)
         ) {
+
             LineChart(
                 modifier = Modifier
                     .wrapContentSize()
@@ -330,7 +355,7 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
                 data = listOf(
                     Line(
                         label = "Time Spent",
-                        values = historyTime,
+                        values = graphData,
                         color = SolidColor(Color(0xFF23af92)),
                         firstGradientFillColor = Color(0xFF2BC0A1).copy(alpha = .5f),
                         secondGradientFillColor = Color.Transparent,
@@ -351,9 +376,11 @@ fun DashboardScreen(viewModel: TaskViewModel,context: Context){
 @Preview(showBackground = true)
 @Composable
 fun DashboardScreenPreview(){
-    val taskViewModel = TaskViewModel(taskRepository = TaskRepository(AppDatabase.getDatabase(
-        LocalContext.current).taskDao())
+    val soundHelper = SoundHelper(LocalContext.current)
+    val viewModel = TaskViewModel(taskRepository = TaskRepository(
+        AppDatabase.getDatabase(
+        LocalContext.current).taskDao()),
+        soundHelper
     )
-    val context = LocalContext.current
-    DashboardScreen(taskViewModel,context)
+    DashboardScreen(viewModel){}
 }

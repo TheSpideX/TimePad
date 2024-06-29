@@ -1,4 +1,4 @@
-package com.spidex.timepad
+package com.spidex.timepad.otherScreen
 
 import android.app.Activity
 import android.content.Context
@@ -30,9 +30,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -41,6 +44,13 @@ import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.spidex.timepad.R
+import com.spidex.timepad.SoundHelper
+import com.spidex.timepad.viewModel.TaskViewModel
+import com.spidex.timepad.data.AppDatabase
+import com.spidex.timepad.data.TaskInstance
+import com.spidex.timepad.data.TaskInstanceStatus
+import com.spidex.timepad.data.TaskRepository
 import com.spidex.timepad.ui.theme.green
 import com.spidex.timepad.ui.theme.lightGreen
 import com.spidex.timepad.ui.theme.lightOrange
@@ -53,8 +63,8 @@ import com.spidex.timepad.ui.theme.red
 import com.spidex.timepad.ui.theme.silver
 
 @Composable
-fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Context, onFinishClick : (Task) -> Unit){
-    val currentTask by viewModel.currentTask.collectAsState()
+fun TimeScreen(navController: NavController, viewModel: TaskViewModel, context: Context, onFinishClick : (TaskInstance) -> Unit){
+    val currentTask by viewModel.currentTaskWithInstances.collectAsState()
     currentTask?.let {
         val timerRunning by viewModel.timerRunning.collectAsState()
         LaunchedEffect(timerRunning) {
@@ -65,6 +75,10 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
         }
         BackHandler(onBack = {
             viewModel.pauseTimer()
+            if(currentTask!!.second.isCompleted || currentTask!!.second.status == TaskInstanceStatus.COMPLETED)
+            {
+                viewModel.setCurrentTaskWithInstance(null)
+            }
             navController.navigateUp()
         })
         Column(
@@ -83,7 +97,11 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
             ) {
                 IconButton(onClick = {
                     viewModel.pauseTimer()
-                    navController.popBackStack()
+                    if(currentTask!!.second.isCompleted || currentTask!!.second.status == TaskInstanceStatus.COMPLETED)
+                    {
+                        viewModel.setCurrentTaskWithInstance(null)
+                    }
+                    navController.navigateUp()
                 }) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_arrow_back),
@@ -95,9 +113,10 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                 }
 
                 Text(
-                    text = currentTask?.title ?: "New Task",
+                    text = currentTask?.first?.title ?: "New Task",
                     fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.ExtraBold,
+                    fontFamily = FontFamily(Font(R.font.font2))
                 )
 
                 Row(
@@ -105,11 +124,11 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                         .wrapContentSize()
                         .padding(end = 8.dp)
                         .background(
-                            color = when (currentTask?.tag ?: "Personal") {
+                            color = when (currentTask?.first?.tag ?: "Personal") {
                                 "Work" -> lightRed
                                 "Coding" -> lightRed
                                 "Workout" -> lightOrange
-                                "Reading" -> lightGreen
+                                "Study" -> lightGreen
                                 "Project" -> lightPurple
                                 else -> lightSilver
                             },
@@ -118,17 +137,18 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                 )
                 {
                     Text(
-                        text = currentTask?.tag ?: "Work",
-                        color = when (viewModel.currentTask.value?.tag ?: "Personal") {
+                        text = currentTask?.first?.tag ?: "Work",
+                        color = when (currentTask?.first?.tag ?: "Personal") {
                             "Work" -> red
                             "Coding" -> red
                             "Workout" -> orange
-                            "Reading" -> green
+                            "Study" -> green
                             "Project" -> purple
                             else -> silver
                         },
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = FontFamily(Font(R.font.font2)),
                         modifier = Modifier.padding(
                             start = 8.dp,
                             end = 8.dp,
@@ -160,10 +180,11 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = currentTask?.description ?: "Description",
+                        text = currentTask?.first?.description ?: "Description",
                         fontSize = 16.sp,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        fontFamily = FontFamily(Font(R.font.font2))
                     )
                 }
 
@@ -177,10 +198,24 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                 ) {
                     CircularProgressIndicator(
                         viewModel = viewModel,
-                        remainingTimeMillis = currentTask?.remainingTimeMillis ?: 0,
-                        totalDurationMillis = currentTask?.durationMinutes ?: 1,
-                        progressColor = Color(0xff7012CE),
-                        progressBackgroundColor = Color(0xFFe9e9fd),
+                        remainingTimeMillis = currentTask?.second?.remainingTimeMillis ?: 0,
+                        totalDurationMillis = currentTask?.second?.durationMinutes ?: 1,
+                        progressColor = when (currentTask?.first?.tag ?: "Personal") {
+                            "Work" -> red
+                            "Coding" -> red
+                            "Workout" -> orange
+                            "Study" -> green
+                            "Project" -> purple
+                            else -> silver
+                        },
+                        progressBackgroundColor = when (currentTask?.first?.tag ?: "Personal") {
+                            "Work" -> lightRed
+                            "Coding" -> lightRed
+                            "Workout" -> lightOrange
+                            "Study" -> lightGreen
+                            "Project" -> lightPurple
+                            else -> lightSilver
+                        },
                         strokeWidth = 16.dp,
                         strokeBackgroundWidth = 20.dp,
                         waveAnimation = false,
@@ -196,7 +231,7 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                         .wrapContentHeight()
                         .padding(top = 32.dp, start = 32.dp, end = 32.dp)
                         .constrainAs(finish) {
-                            bottom.linkTo(quit.top)
+                            bottom.linkTo(quit.top,margin = 8.dp)
                             start.linkTo(parent.start)
                             end.linkTo(parent.end)
                         },
@@ -204,11 +239,8 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFe9e9fd)),
                     onClick = {
                         viewModel.pauseTimer()
-                        currentTask?.let { task ->
-                            viewModel.markTaskCompleted(task)
-                        }
                         navController.navigateUp()
-                        onFinishClick(currentTask!!)
+                        onFinishClick(currentTask!!.second)
                     }
                 ) {
                     Column(
@@ -217,7 +249,7 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                             .clickable {
                                 viewModel.pauseTimer()
                                 navController.navigateUp()
-                                onFinishClick(currentTask!!)
+                                onFinishClick(currentTask!!.second)
                             },
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -226,18 +258,24 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                             text = "Finish",
                             modifier = Modifier.padding(16.dp),
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily(Font(R.font.font2))
                         )
                     }
                 }
 
-                Text(
-                    text = " Quit ",
+
+                Column(
                     modifier = Modifier
-                        .padding(16.dp)
+                        .fillMaxWidth()
+                        .padding(start = 48.dp, end = 48.dp)
+                        .clip(RoundedCornerShape(20))
                         .clickable {
                             viewModel.pauseTimer()
-                            viewModel.getTodayTask()
+                            if(currentTask!!.second.isCompleted || currentTask!!.second.status == TaskInstanceStatus.COMPLETED)
+                            {
+                                viewModel.setCurrentTaskWithInstance(null)
+                            }
                             navController.navigateUp()
                         }
                         .constrainAs(quit) {
@@ -245,9 +283,18 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
                             start.linkTo(parent.start)
                             end.linkTo(parent.end)
                         },
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = " Quit ",
+                        modifier = Modifier
+                            .padding(16.dp),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = FontFamily(Font(R.font.font2))
+                    )
+                }
             }
         }
     } ?: run {
@@ -264,9 +311,13 @@ fun TimeScreen(navController: NavController,viewModel: TaskViewModel,context: Co
 @Preview(showBackground = true)
 @Composable
 fun DefaultPreview() {
-    val taskViewModel = TaskViewModel(taskRepository = TaskRepository(AppDatabase.getDatabase(
-        LocalContext.current).taskDao()))
+    val soundHelper = SoundHelper(LocalContext.current)
+    val viewModel = TaskViewModel(taskRepository = TaskRepository(
+        AppDatabase.getDatabase(
+        LocalContext.current).taskDao()),
+        soundHelper
+    )
     val context = LocalContext.current
     val navController = rememberNavController()
-    TimeScreen(navController,taskViewModel,context){}
+    TimeScreen(navController,viewModel,context){}
 }
