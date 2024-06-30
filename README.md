@@ -1,7 +1,8 @@
+
 <p align="center">
 
 
-  <img src="https://github.com/TheSpideX/TimePad/assets/171694578/1da4aa32-35e9-4bef-9059-f9869ae68212" width="100" />
+  <img src="https://github.com/TheSpideX/TimePad/assets/171694578/23f0d4e4-93de-49aa-9d7e-b8d86a03ce84" width="100" />
 </p>
 <p align="center">
     <h1 align="center">TimePad</h1>
