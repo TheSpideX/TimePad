@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -111,6 +114,7 @@ fun TaskScreen(viewModel: TaskViewModel, context : Context, navigateToAllTask :(
 
     val currentMonthDisplayed = state.firstVisibleMonth.yearMonth
     val selectedDay by viewModel.selectedDate.collectAsState()
+    val cutoutPadding = WindowInsets.displayCutout.asPaddingValues()
 
     LaunchedEffect(currentMonthDisplayed) {
         viewModel.setCurrentMonth(currentMonthDisplayed)
@@ -124,7 +128,7 @@ fun TaskScreen(viewModel: TaskViewModel, context : Context, navigateToAllTask :(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 32.dp)
+                .padding(cutoutPadding)
                 .background(color = background)
         ) {
 

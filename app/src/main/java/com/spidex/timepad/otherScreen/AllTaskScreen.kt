@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -109,11 +112,12 @@ fun AllTaskScreen(navController: NavController, viewModel: TaskViewModel, contex
     val allTask by viewModel.allTasks.collectAsState()
     val showEditDialog by viewModel.showEditDialog.collectAsState()
     val showDeleteDialog by viewModel.showDeleteDialog.collectAsState()
+    val cutoutPadding = WindowInsets.displayCutout.asPaddingValues()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 16.dp)
+            .padding(cutoutPadding)
     ) {
         ConstraintLayout(
             modifier = Modifier

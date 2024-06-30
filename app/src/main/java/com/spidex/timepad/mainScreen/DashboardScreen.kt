@@ -10,7 +10,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -60,6 +63,7 @@ fun DashboardScreen(viewModel: TaskViewModel, onNavigateToAllTaskScreen : () -> 
     val graphData by viewModel.graphData.collectAsState()
 
     val selected by viewModel.selectedPeriod.collectAsState()
+    val cutoutPadding = WindowInsets.displayCutout.asPaddingValues()
 
     Column(
         modifier = Modifier
@@ -69,7 +73,7 @@ fun DashboardScreen(viewModel: TaskViewModel, onNavigateToAllTaskScreen : () -> 
         horizontalAlignment = Alignment.CenterHorizontally
     ){
         Row(
-            modifier = Modifier.padding(top = 16.dp)
+            modifier = Modifier.padding(cutoutPadding)
         ){
             Text(
                 text = "My Productivity",

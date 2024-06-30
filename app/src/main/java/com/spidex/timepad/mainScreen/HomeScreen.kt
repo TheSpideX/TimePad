@@ -10,6 +10,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -76,6 +79,7 @@ fun HomeScreen(viewModel: TaskViewModel, context : Context, navigateToClock: () 
     val showEditDialog by viewModel.showEditDialog.collectAsState()
     val showDeleteDialog by viewModel.showDeleteDialog.collectAsState()
     val showAddDialog by viewModel.showAddDialog.collectAsState()
+    val cutoutPadding = WindowInsets.displayCutout.asPaddingValues()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -88,7 +92,7 @@ fun HomeScreen(viewModel: TaskViewModel, context : Context, navigateToClock: () 
                 .fillMaxWidth()
                 .wrapContentHeight()
                 .background(color = background)
-                .padding(top = 16.dp),
+                .padding(cutoutPadding),
         ){
             Text(
                 text = "Task",

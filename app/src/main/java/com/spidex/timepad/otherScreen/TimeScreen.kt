@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -67,6 +70,7 @@ fun TimeScreen(navController: NavController, viewModel: TaskViewModel, context: 
     val currentTask by viewModel.currentTaskWithInstances.collectAsState()
     currentTask?.let {
         val timerRunning by viewModel.timerRunning.collectAsState()
+        val cutoutPadding = WindowInsets.displayCutout.asPaddingValues()
         LaunchedEffect(timerRunning) {
             val activity = context as? Activity
             if (timerRunning) {
@@ -91,7 +95,7 @@ fun TimeScreen(navController: NavController, viewModel: TaskViewModel, context: 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp),
+                    .padding(cutoutPadding),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -162,7 +166,8 @@ fun TimeScreen(navController: NavController, viewModel: TaskViewModel, context: 
             ConstraintLayout(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(),
+                    .fillMaxHeight()
+                    .padding(top = 8.dp),
             ) {
 
                 val (progress, finish, quit, des) = createRefs()
@@ -231,7 +236,7 @@ fun TimeScreen(navController: NavController, viewModel: TaskViewModel, context: 
                         .wrapContentHeight()
                         .padding(top = 32.dp, start = 32.dp, end = 32.dp)
                         .constrainAs(finish) {
-                            bottom.linkTo(quit.top,margin = 8.dp)
+                            bottom.linkTo(if(currentTask!!.second.remainingTimeMillis != 0L) quit.top else parent.bottom,margin = 8.dp)
                             start.linkTo(parent.start)
                             end.linkTo(parent.end)
                         },
@@ -264,36 +269,36 @@ fun TimeScreen(navController: NavController, viewModel: TaskViewModel, context: 
                     }
                 }
 
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 48.dp, end = 48.dp)
-                        .clip(RoundedCornerShape(20))
-                        .clickable {
-                            viewModel.pauseTimer()
-                            if(currentTask!!.second.isCompleted || currentTask!!.second.status == TaskInstanceStatus.COMPLETED)
-                            {
-                                viewModel.setCurrentTaskWithInstance(null)
-                            }
-                            navController.navigateUp()
-                        }
-                        .constrainAs(quit) {
-                            bottom.linkTo(parent.bottom, margin = 32.dp)
-                            start.linkTo(parent.start)
-                            end.linkTo(parent.end)
-                        },
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = " Quit ",
+                if(currentTask!!.second.remainingTimeMillis != 0L) {
+                    Column(
                         modifier = Modifier
-                            .padding(16.dp),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily(Font(R.font.font2))
-                    )
+                            .fillMaxWidth()
+                            .padding(start = 48.dp, end = 48.dp)
+                            .clip(RoundedCornerShape(20))
+                            .clickable {
+                                viewModel.pauseTimer()
+                                if (currentTask!!.second.isCompleted || currentTask!!.second.status == TaskInstanceStatus.COMPLETED) {
+                                    viewModel.setCurrentTaskWithInstance(null)
+                                }
+                                navController.navigateUp()
+                            }
+                            .constrainAs(quit) {
+                                bottom.linkTo(parent.bottom, margin = 32.dp)
+                                start.linkTo(parent.start)
+                                end.linkTo(parent.end)
+                            },
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = " Quit ",
+                            modifier = Modifier
+                                .padding(16.dp),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily(Font(R.font.font2))
+                        )
+                    }
                 }
             }
         }
