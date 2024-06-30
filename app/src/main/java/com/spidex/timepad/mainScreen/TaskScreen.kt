@@ -388,7 +388,7 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Pair<Task, TaskInstance>
             .fillMaxWidth()
             .height(90.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp),
+        elevation = CardDefaults.cardElevation(if(task.second.status == TaskInstanceStatus.COMPLETED) 0.dp else 2.dp),
         shape = RoundedCornerShape(20)
     ) {
         ConstraintLayout(
@@ -418,8 +418,12 @@ fun TaskViewTaskScreen(viewModel: TaskViewModel, task : Pair<Task, TaskInstance>
                         }
                     },
                     onLongClick = {
-                        viewModel.setDeleteTask(task)
-                        viewModel.setShowDeleteDialog(true)
+                        if (!task.second.isCompleted) {
+                            viewModel.setDeleteTask(task)
+                            viewModel.setShowDeleteDialog(true)
+                        } else{
+                            Toast.makeText(context,"Task is Completed, Delete Main Task Instance From All Task",Toast.LENGTH_LONG).show()
+                        }
                     },
                 )
         ) {
