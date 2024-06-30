@@ -89,6 +89,7 @@ fun TimeScreen(navController: NavController, viewModel: TaskViewModel, context: 
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
+                .padding(cutoutPadding)
                 .background(Color.White),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -236,7 +237,7 @@ fun TimeScreen(navController: NavController, viewModel: TaskViewModel, context: 
                         .wrapContentHeight()
                         .padding(top = 32.dp, start = 32.dp, end = 32.dp)
                         .constrainAs(finish) {
-                            bottom.linkTo(if(currentTask!!.second.remainingTimeMillis != 0L) quit.top else parent.bottom,margin = 8.dp)
+                            bottom.linkTo(if(currentTask!!.second.remainingTimeMillis != 0L) quit.top else parent.bottom,margin = if(currentTask!!.second.remainingTimeMillis != 0L)  8.dp else 32.dp)
                             start.linkTo(parent.start)
                             end.linkTo(parent.end)
                         },

@@ -319,7 +319,7 @@ class TaskViewModel(
             }
             _timerRunning.value = false
             if (_currentTaskWithInstances.value!!.second.remainingTimeMillis == 0L) {
-                soundHelper.playSound()
+                soundHelper.playSound(lastWeekProductivity.value.second)
                 markTaskCompleted(_currentTaskWithInstances.value!!.second)
             }
         }
