@@ -415,6 +415,7 @@ class TaskViewModel(
             taskRepository.updateTaskInstance(taskInstance)
         }
         generateTaskInstancesIfNeeded(task,LocalDate.now(),YearMonth.now().atEndOfMonth())
+        refreshTasksAndInstances()
     }
     fun doneEditing(){
         _editTaskWithInstances.value = null
@@ -435,6 +436,7 @@ class TaskViewModel(
         }
         taskRepository.deleteTask(task.first)
         generateTaskInstancesIfNeeded(task.first,LocalDate.now(),YearMonth.now().atEndOfMonth())
+        refreshTasksAndInstances()
     }
     fun deleteTaskPermanently(task : Pair<Task, TaskInstance>) = viewModelScope.launch {
         if(currentTaskWithInstances.value == task){
@@ -442,6 +444,7 @@ class TaskViewModel(
         }
         taskRepository.deleteTaskPermanently(task.first)
         getTasksForDate(LocalDate.now())
+        refreshTasksAndInstances()
     }
     fun deleteInstance(taskInstance: TaskInstance) = viewModelScope.launch{
         if(currentTaskWithInstances.value!!.second == taskInstance)
@@ -452,5 +455,6 @@ class TaskViewModel(
     }
     fun onDeleteDone(){
         _deleteTaskWithInstances.value = null
+        refreshTasksAndInstances()
     }
 }
