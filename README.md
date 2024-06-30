@@ -81,6 +81,11 @@ The repository is organized into the following main directories:
 - `app/src/main/java/com/spidex/timepad/ui/theme`: Theme-related files.
 
 ---
+## Download Link
+
+- **MediaFire :** https://www.mediafire.com/file/j5jcp2epy0uoiqq/TimePad.apk/file
+- **PlayStore :** Will be Available Soon as it is under Review
+
 ## Additional Notes
 
 - The app uses `Task` and `TaskInstance` entities to store task information in a Room database.
