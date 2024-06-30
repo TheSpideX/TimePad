@@ -35,6 +35,19 @@ TimePad is a productivity app designed to help users manage their daily tasks ef
 
 ---
 
+## Video
+
+<p align="center">
+
+https://github.com/TheSpideX/TimePad/assets/171694578/9665ec85-0969-4df3-a703-f718473cecc3
+
+</p>
+---
+
+
+
+
+
 ## Features
 
 - **Repeating Tasks:**  Easily schedule tasks to repeat on a daily, weekly, monthly, or yearly basis.
